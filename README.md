@@ -1,88 +1,96 @@
 # Dumb Relational Database (DRD)
 
-## Operators
+https://en.wikipedia.org/wiki/Relational_algebra#Introduction
 
-(Highest to lowest precedence)
+https://cs186berkeley.net/notes/note6/
 
-| Operator   | Syntax              |
-|------------|---------------------|
-| Column     | `name: type`        |
-| Table      | `column, column`    |
-| Equality   | `column == data`    |
-| Where      | `table ? condition` |
-| Select     | `column <- table`   |
-| Let        | `name = expression` |
-
-## Tables
-
-A table can be either:
-
-1. An "entity table" containing only an ID column
-2. A "data table" containing an ID column and a data column, holding scalar values
-3. A "relation table" containing an ID column and a foreign ID column, referencing another table
-
-Employee (entity table)
+## Syntax
 
 ```
-Employee = id: Id
+let        (var = exp)
+
+table      [exp ...]
+row        {var exp ...}
+
+select     (var ... <- exp)
+where      (exp ? exp)
+product    (exp * exp)
+union      (exp + exp)
+difference (exp - exp)
+
+equals     (exp == exp)
+and        (exp & exp)
+or         (exp | exp)
+not        (! exp)
+
+bool       true
+int        -42
+str        "hi"
+var        x
 ```
 
-| id |
-|----|
-| 1  |
-| 2  |
-| 3  |
+## Operations
 
-Customer (entity table)
+### Let
 
-```
-Customer = id: Id
-```
+`(var = exp)`
 
-| id |
-|----|
-| 4  |
-| 5  |
+### Row
 
-Phone (data table)
+`(Alice = {name "Alice" title "Product Manager"})`
+
+### Table
 
 ```
-Phone = id: Id, phone: String
+(Person = [{name "Alice"   title "Product Manager"   level 1}
+           {name "Bob"     title "Software Engineer" level 2}
+           {name "Charlie" title "Software Engineer" level 1}])
 ```
 
-| id | phone: String |
-|----|---------------|
-| 1  | 0417483829    |
-| 2  | 0471837400    |
-| 3  | 0403718282    |
-| 4  | 0473838838    |
-| 5  | 0417208374    |
+### Projection (π)
 
-Manager (relation table)
+SQL: `SELECT`
 
-```
-Manager = id: Id, manager: Employee
-```
+Example: `SELECT column FROM table;`
 
-| id | manager: Employee |
-|----|-------------------|
-| 2  | 1                 |
-| 3  | 2                 |
+`(column <- table)`
 
-## Queries
+### Selection (σ)
 
-```
-id <- Employee -- The identity function, funnily enough
-id <- Phone -- The IDs of the Phone table
-phone <- Phone -- The phone numbers in the Phone table
+SQL: `WHERE`
 
-'foo' == 'foo' -- true
-1 == 2 -- false
+Example: `SELECT * FROM table WHERE condition;`
 
-Phone ? true -- Identity function
-Phone ? false -- Empty
-Phone ? phone == '0417483829' -- Table with one phone number. `phone` is in scope.
+`(* <- (table ? condition))`
 
--- What's my manager's phone number?
-phone <- Phone ? id == (manager <- Manager ? id == 3)
-```
+### Cartesian product (×)
+
+SQL: `A, B` or `CROSS JOIN`
+
+Example: `SELECT * FROM table1, table2;`
+
+`(* <- (table1 * table2))`
+
+### Union (∪)
+
+SQL: `UNION` 
+
+Example: `SELECT * FROM table1 UNION SELECT * FROM table2;`
+
+`((* <- table1) + (* <- table2))`
+
+### Set difference (-)
+
+SQL: `EXCEPT` or `MINUS`
+
+Example: `SELECT * FROM table1 EXCEPT SELECT * FROM table2;`
+
+`((* <- table1) - (* <- table2))`
+
+### Rename (ρ)
+
+SQL: `AS`
+
+Example: `SELECT column AS new_name FROM table;`
+
+`((column := new-name) <- table)`
