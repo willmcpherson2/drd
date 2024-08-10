@@ -8,38 +8,38 @@ https://cs186berkeley.net/notes/note6/
 
 (Lowest to highest precedence)
 
-| Name       | Syntax           |
-|------------|------------------|
-| Let        | `var = exp`      |
-| Select     | `var ... <- exp` |
-| Where      | `exp ? exp`      |
-| Union      | `exp + exp`      |
-| Difference | `exp - exp`      |
-| Product    | `exp * exp`      |
-| Or         | `exp | exp`      |
-| Equals     | `exp == exp`     |
-| And        | `exp & exp`      |
-| Not        | `!exp`           |
-| Parens     | `(exp)`          |
-| Table      | `[exp ...]`      |
-| Row        | `{var exp ...}`  |
-| Bool       | `true`           |
-| Int        | `-42`            |
-| Str        | `'hi'`           |
-| Var        | `x`              |
+```
+Let         var = exp
+Select      var ... <- exp
+Where       exp ? exp
+Union       exp + exp
+Difference  exp - exp
+Product     exp * exp
+Or          exp | exp
+Equals      exp == exp
+And         exp & exp
+Not         !exp
+Parens      (exp)
+Table       [exp ...]
+Row         {var exp ...}
+Bool        true
+Int         -42
+Str         'hi'
+Var         x
+```
 
 ## Operations
 
 ### Let
 
 ```
-var = exp
+var = exp;
 ```
 
 ### Row
 
 ```
-Alice = {name "Alice" title "Product Manager"}
+Alice = {name "Alice" title "Product Manager"};
 ```
 
 ### Table
@@ -47,7 +47,7 @@ Alice = {name "Alice" title "Product Manager"}
 ```
 Person = [{name "Alice"   title "Product Manager"   level 1}
           {name "Bob"     title "Software Engineer" level 2}
-          {name "Charlie" title "Software Engineer" level 1}]
+          {name "Charlie" title "Software Engineer" level 1}];
 ```
 
 ### Projection (π)
@@ -57,7 +57,7 @@ SQL: `SELECT`
 Example: `SELECT column FROM table;`
 
 ```
-column <- table
+column <- table;
 ```
 
 ### Selection (σ)
@@ -67,7 +67,7 @@ SQL: `WHERE`
 Example: `SELECT * FROM table WHERE condition;`
 
 ```
-* <- table ? condition
+* <- table ? condition;
 ```
 
 ### Cartesian product (×)
@@ -77,7 +77,7 @@ SQL: `A, B` or `CROSS JOIN`
 Example: `SELECT * FROM table1, table2;`
 
 ```
-* <- table1 * table2
+* <- table1 * table2;
 ```
 
 ### Union (∪)
@@ -87,7 +87,7 @@ SQL: `UNION`
 Example: `SELECT * FROM table1 UNION SELECT * FROM table2;`
 
 ```
-(* <- table1) + (* <- table20
+(* <- table1) + (* <- table2);
 ```
 
 ### Set difference (-)
@@ -97,7 +97,7 @@ SQL: `EXCEPT` or `MINUS`
 Example: `SELECT * FROM table1 EXCEPT SELECT * FROM table2;`
 
 ```
-(* <- table1) - (* <- table2)
+(* <- table1) - (* <- table2);
 ```
 
 ### Rename (ρ)
@@ -109,5 +109,5 @@ SQL: `AS`
 Example: `SELECT column AS new_name FROM table;`
 
 ```
-(column := new_name) <- table
+(column := new_name) <- table;
 ```
