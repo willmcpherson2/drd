@@ -9,19 +9,25 @@ https://cs186berkeley.net/notes/note6/
 (Lowest to highest precedence)
 
 ```
+Program     exp; exp
+
 Let         var = exp
+
 Select      var ... <- exp
 Where       exp ? exp
 Union       exp + exp
 Difference  exp - exp
 Product     exp * exp
+
+Table       exp. exp
+Row         exp, exp
+Cell        var: exp
+
 Or          exp | exp
 Equals      exp == exp
 And         exp & exp
 Not         !exp
-Parens      (exp)
-Table       [exp ...]
-Row         {var exp ...}
+
 Bool        true
 Int         -42
 Str         'hi'
@@ -29,26 +35,6 @@ Var         x
 ```
 
 ## Operations
-
-### Let
-
-```
-var = exp;
-```
-
-### Row
-
-```
-Alice = {name "Alice" title "Product Manager"};
-```
-
-### Table
-
-```
-Person = [{name "Alice"   title "Product Manager"   level 1}
-          {name "Bob"     title "Software Engineer" level 2}
-          {name "Charlie" title "Software Engineer" level 1}];
-```
 
 ### Projection (π)
 

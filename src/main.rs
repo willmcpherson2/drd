@@ -16,12 +16,13 @@ enum Exp {
     Union(Union),
     Difference(Difference),
     Product(Product),
+    Table(Table),
+    Row(Row),
+    Cell(Cell),
     Or(Or),
     Equals(Equals),
     And(And),
     Not(Not),
-    Table(Table),
-    Row(Row),
     Bool(Bool),
     Int(Int),
     Str(Str),
@@ -47,6 +48,15 @@ struct Difference(Box<Exp>, Box<Exp>);
 struct Product(Box<Exp>, Box<Exp>);
 
 #[derive(Debug, PartialEq, Clone)]
+struct Table(Box<Exp>, Box<Exp>);
+
+#[derive(Debug, PartialEq, Clone)]
+struct Row(Box<Exp>, Box<Exp>);
+
+#[derive(Debug, PartialEq, Clone)]
+struct Cell(Var, Box<Exp>);
+
+#[derive(Debug, PartialEq, Clone)]
 struct Or(Box<Exp>, Box<Exp>);
 
 #[derive(Debug, PartialEq, Clone)]
@@ -54,12 +64,6 @@ struct Equals(Box<Exp>, Box<Exp>);
 
 #[derive(Debug, PartialEq, Clone)]
 struct And(Box<Exp>, Box<Exp>);
-
-#[derive(Debug, PartialEq, Clone)]
-struct Table(Vec<Exp>);
-
-#[derive(Debug, PartialEq, Clone)]
-struct Row(Vec<(Var, Exp)>);
 
 #[derive(Debug, PartialEq, Clone)]
 struct Not(Box<Exp>);
@@ -80,7 +84,13 @@ fn main() {
     println!(
         "{:#?}",
         parse_program(
-            "Staff = [{name 'Alice'} {name 'Bob'}]; bob = name <- Staff ? name == 'Bob';"
+            r#"
+Staff =
+  name: 'Alice'.
+  name: 'Bob';
+
+bob = name <- Staff ? name == 'Bob';
+"#
         )
     );
 }
@@ -156,10 +166,40 @@ fn parse_product(input: &str) -> IResult<&str, Exp> {
     parse_binary_op(
         input,
         |l, r| Exp::Product(Product(l, r)),
-        parse_equals,
+        parse_table,
         "*",
         parse_product,
     )
+}
+
+fn parse_table(input: &str) -> IResult<&str, Exp> {
+    parse_binary_op(
+        input,
+        |l, r| Exp::Table(Table(l, r)),
+        parse_row,
+        ".",
+        parse_table,
+    )
+}
+
+fn parse_row(input: &str) -> IResult<&str, Exp> {
+    parse_binary_op(
+        input,
+        |l, r| Exp::Row(Row(l, r)),
+        parse_cell,
+        ",",
+        parse_row,
+    )
+}
+
+fn parse_cell(input: &str) -> IResult<&str, Exp> {
+    alt((
+        map(
+            tuple((parse_var, ws, tag(":"), ws, parse_cell)),
+            |(var, _, _, _, exp)| Exp::Cell(Cell(var, Box::new(exp))),
+        ),
+        parse_equals,
+    ))(input)
 }
 
 fn parse_equals(input: &str) -> IResult<&str, Exp> {
@@ -180,46 +220,13 @@ fn parse_and(input: &str) -> IResult<&str, Exp> {
     parse_binary_op(input, |l, r| Exp::And(And(l, r)), parse_not, "&", parse_and)
 }
 
-fn parse_binary_op<'a>(
-    input: &'a str,
-    constructor: fn(Box<Exp>, Box<Exp>) -> Exp,
-    parse_left: fn(&str) -> IResult<&str, Exp>,
-    op: &'static str,
-    parse_right: fn(&str) -> IResult<&str, Exp>,
-) -> IResult<&'a str, Exp> {
-    alt((
-        map(
-            tuple((parse_left, ws, tag(op), ws, parse_right)),
-            |(l, _, _, _, r)| constructor(Box::new(l), Box::new(r)),
-        ),
-        parse_left,
-    ))(input)
-}
-
 fn parse_not(input: &str) -> IResult<&str, Exp> {
     parse_unary_op(input, |exp| Exp::Not(Not(exp)), parse_atom, "!", parse_not)
-}
-
-fn parse_unary_op<'a>(
-    input: &'a str,
-    constructor: fn(Box<Exp>) -> Exp,
-    parse_left: fn(&str) -> IResult<&str, Exp>,
-    op: &'static str,
-    parse_right: fn(&str) -> IResult<&str, Exp>,
-) -> IResult<&'a str, Exp> {
-    alt((
-        map(tuple((tag(op), ws, parse_right)), |(_, _, r)| {
-            constructor(Box::new(r))
-        }),
-        parse_left,
-    ))(input)
 }
 
 fn parse_atom(input: &str) -> IResult<&str, Exp> {
     alt((
         parse_parens,
-        map(parse_table, Exp::Table),
-        map(parse_row, Exp::Row),
         map(parse_bool, Exp::Bool),
         map(parse_int, Exp::Int),
         map(parse_str, Exp::Str),
@@ -231,26 +238,6 @@ fn parse_parens(input: &str) -> IResult<&str, Exp> {
     map(
         tuple((tag("("), ws, parse_exp, ws, tag(")"))),
         |(_, _, exp, _, _)| exp,
-    )(input)
-}
-
-fn parse_table(input: &str) -> IResult<&str, Table> {
-    map(
-        tuple((tag("["), ws, many0(pair(parse_exp, ws)), tag("]"))),
-        |(_, _, exps, _)| Table(exps.into_iter().map(|(exp, _)| exp).collect()),
-    )(input)
-}
-
-fn parse_row(input: &str) -> IResult<&str, Row> {
-    fn parse_row_item(input: &str) -> IResult<&str, (Var, Exp)> {
-        map(tuple((parse_var, ws, parse_exp)), |(var, _, exp)| {
-            (var, exp)
-        })(input)
-    }
-
-    map(
-        tuple((tag("{"), ws, many0(pair(parse_row_item, ws)), tag("}"))),
-        |(_, _, items, _)| Row(items.into_iter().map(|(item, _)| item).collect()),
     )(input)
 }
 
@@ -286,6 +273,37 @@ fn parse_var(input: &str) -> IResult<&str, Var> {
     )(input)
 }
 
+fn parse_binary_op<'a>(
+    input: &'a str,
+    constructor: fn(Box<Exp>, Box<Exp>) -> Exp,
+    parse_left: fn(&str) -> IResult<&str, Exp>,
+    op: &'static str,
+    parse_right: fn(&str) -> IResult<&str, Exp>,
+) -> IResult<&'a str, Exp> {
+    alt((
+        map(
+            tuple((parse_left, ws, tag(op), ws, parse_right)),
+            |(l, _, _, _, r)| constructor(Box::new(l), Box::new(r)),
+        ),
+        parse_left,
+    ))(input)
+}
+
+fn parse_unary_op<'a>(
+    input: &'a str,
+    constructor: fn(Box<Exp>) -> Exp,
+    parse_left: fn(&str) -> IResult<&str, Exp>,
+    op: &'static str,
+    parse_right: fn(&str) -> IResult<&str, Exp>,
+) -> IResult<&'a str, Exp> {
+    alt((
+        map(tuple((tag(op), ws, parse_right)), |(_, _, r)| {
+            constructor(Box::new(r))
+        }),
+        parse_left,
+    ))(input)
+}
+
 fn multi_line_comment(input: &str) -> IResult<&str, ()> {
     value((), tuple((tag("/*"), take_until("*/"), tag("*/"))))(input)
 }
@@ -314,36 +332,6 @@ mod test {
                     Box::new(Exp::And(And(
                         Box::new(Exp::Bool(Bool(false))),
                         Box::new(Exp::Not(Not(Box::new(Exp::Bool(Bool(true))))))
-                    )))
-                ))
-            ))
-        );
-        assert_eq!(
-            parse_exp(
-                "alice = id name <- [{id 1 name 'Alice'} {id 2 name 'Bob'}] ? name == 'Alice'"
-            ),
-            Ok((
-                "",
-                Exp::Let(Let(
-                    Var("alice".to_string()),
-                    Box::new(Exp::Select(Select(
-                        vec![Var("id".to_string()), Var("name".to_string())],
-                        Box::new(Exp::Where(Where(
-                            Box::new(Exp::Table(Table(vec![
-                                Exp::Row(Row(vec![
-                                    (Var("id".to_string()), Exp::Int(Int(1))),
-                                    (Var("name".to_string()), Exp::Str(Str("Alice".to_string())))
-                                ])),
-                                Exp::Row(Row(vec![
-                                    (Var("id".to_string()), Exp::Int(Int(2))),
-                                    (Var("name".to_string()), Exp::Str(Str("Bob".to_string())))
-                                ]))
-                            ]))),
-                            Box::new(Exp::Equals(Equals(
-                                Box::new(Exp::Var(Var("name".to_string()))),
-                                Box::new(Exp::Str(Str("Alice".to_string())))
-                            )))
-                        )))
                     )))
                 ))
             ))
@@ -407,6 +395,38 @@ mod test {
                         Var("z".to_string())
                     ],
                     Box::new(Exp::Bool(Bool(true)))
+                ))
+            ))
+        );
+    }
+
+    #[test]
+    fn test_parse_table() {
+        assert_eq!(
+            parse_table("name: 'Alice', id: 1. name: 'Bob', id: 2"),
+            Ok((
+                "",
+                Exp::Table(Table(
+                    Box::new(Exp::Row(Row(
+                        Box::new(Exp::Cell(Cell(
+                            Var("name".to_string()),
+                            Box::new(Exp::Str(Str("Alice".to_string())))
+                        ))),
+                        Box::new(Exp::Cell(Cell(
+                            Var("id".to_string()),
+                            Box::new(Exp::Int(Int(1)))
+                        )))
+                    ))),
+                    Box::new(Exp::Row(Row(
+                        Box::new(Exp::Cell(Cell(
+                            Var("name".to_string()),
+                            Box::new(Exp::Str(Str("Bob".to_string())))
+                        ))),
+                        Box::new(Exp::Cell(Cell(
+                            Var("id".to_string()),
+                            Box::new(Exp::Int(Int(2)))
+                        )))
+                    )))
                 ))
             ))
         );
@@ -496,50 +516,6 @@ mod test {
             Ok(("", Exp::Str(Str("hello".to_string()))))
         );
         assert_eq!(parse_atom("x"), Ok(("", Exp::Var(Var("x".to_string())))));
-    }
-
-    #[test]
-    fn test_parse_table() {
-        assert_eq!(parse_table("[]"), Ok(("", Table(vec![]))));
-        assert_eq!(
-            parse_table("[true]"),
-            Ok(("", Table(vec![Exp::Bool(Bool(true))])))
-        );
-        assert_eq!(
-            parse_table("[ ( true | true & false ) true ]"),
-            Ok((
-                "",
-                Table(vec![
-                    Exp::Or(Or(
-                        Box::new(Exp::Bool(Bool(true))),
-                        Box::new(Exp::And(And(
-                            Box::new(Exp::Bool(Bool(true))),
-                            Box::new(Exp::Bool(Bool(false)))
-                        )))
-                    )),
-                    Exp::Bool(Bool(true))
-                ])
-            ))
-        );
-    }
-
-    #[test]
-    fn test_parse_row() {
-        assert_eq!(parse_row("{}"), Ok(("", Row(vec![]))));
-        assert_eq!(
-            parse_row("{ x true }"),
-            Ok(("", Row(vec![(Var("x".to_string()), Exp::Bool(Bool(true)))])))
-        );
-        assert_eq!(
-            parse_row("{ x true y false }"),
-            Ok((
-                "",
-                Row(vec![
-                    (Var("x".to_string()), Exp::Bool(Bool(true))),
-                    (Var("y".to_string()), Exp::Bool(Bool(false)))
-                ])
-            ))
-        );
     }
 
     #[test]
