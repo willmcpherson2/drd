@@ -120,15 +120,24 @@ fn parse_let(input: &str) -> IResult<&str, Exp> {
 
 fn parse_select(input: &str) -> IResult<&str, Exp> {
     fn parse_select_vars(input: &str) -> IResult<&str, Vec<Var>> {
-        map(many0(tuple((parse_var, junk))), |vars| {
+        map(many0(pair(parse_var, junk)), |vars| {
             vars.into_iter().map(|(var, _)| var).collect()
         })(input)
     }
 
     alt((
         map(
-            tuple((parse_select_vars, junk, tag("<-"), junk, parse_select)),
-            |(vars, _, _, _, exp)| Exp::Select(Select(vars, Box::new(exp))),
+            tuple((
+                tag("("),
+                junk,
+                parse_select_vars,
+                tag(")"),
+                junk,
+                tag("<-"),
+                junk,
+                parse_select,
+            )),
+            |(_, _, vars, _, _, _, _, exp)| Exp::Select(Select(vars, Box::new(exp))),
         ),
         parse_where,
     ))(input)
@@ -342,7 +351,7 @@ Staff =
   name: 'Alice', id: 1; -- first row
   name: 'Bob', id: 2    -- second row
 
-bob = name /* columns... */ <- Staff ? name == 'Bob'
+bob = (name /* columns... */) <- Staff ? name == 'Bob'
 "#
             ),
             Ok((
@@ -385,6 +394,28 @@ bob = name /* columns... */ <- Staff ? name == 'Bob'
                                 )))
                             )))
                         )))
+                    ))
+                ]
+            ))
+        );
+
+        assert_eq!(
+            parse_program(
+                r#"
+a = b
+(c d) <- e
+"#
+            ),
+            Ok((
+                "",
+                vec![
+                    Exp::Let(Let(
+                        Var("a".to_string()),
+                        Box::new(Exp::Var(Var("b".to_string())))
+                    )),
+                    Exp::Select(Select(
+                        vec![Var("c".to_string()), Var("d".to_string())],
+                        Box::new(Exp::Var(Var("e".to_string())))
                     ))
                 ]
             ))
@@ -435,7 +466,14 @@ bob = name /* columns... */ <- Staff ? name == 'Bob'
     #[test]
     fn test_parse_select() {
         assert_eq!(
-            parse_select("x <- true"),
+            parse_select("() <- true"),
+            Ok((
+                "",
+                Exp::Select(Select(vec![], Box::new(Exp::Bool(Bool(true)))))
+            ))
+        );
+        assert_eq!(
+            parse_select("(x) <- true"),
             Ok((
                 "",
                 Exp::Select(Select(
@@ -445,7 +483,7 @@ bob = name /* columns... */ <- Staff ? name == 'Bob'
             ))
         );
         assert_eq!(
-            parse_select("x y <- true"),
+            parse_select("(x y) <- true"),
             Ok((
                 "",
                 Exp::Select(Select(
@@ -455,7 +493,7 @@ bob = name /* columns... */ <- Staff ? name == 'Bob'
             ))
         );
         assert_eq!(
-            parse_select("x y z <- true"),
+            parse_select("(x y z) <- true"),
             Ok((
                 "",
                 Exp::Select(Select(
