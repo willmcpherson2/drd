@@ -1,7 +1,7 @@
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag, take_until},
-    character::complete::{alpha1, alphanumeric1, digit1, multispace0},
+    character::complete::{alpha1, alphanumeric1, digit1, multispace1},
     combinator::{map, map_res, opt, recognize, value},
     multi::many0,
     sequence::{pair, tuple},
@@ -85,11 +85,14 @@ fn main() {
         "{:#?}",
         parse_program(
             r#"
-Staff =
-  name: 'Alice'.
-  name: 'Bob';
+/* welcome to
+my database */
 
-bob = name <- Staff ? name == 'Bob';
+Staff =
+  name: 'Alice'. -- first row
+  name: 'Bob';   -- second row
+
+bob = name /* add more columns here */ <- Staff ? name == 'Bob';
 "#
         )
     );
@@ -97,7 +100,7 @@ bob = name <- Staff ? name == 'Bob';
 
 fn parse_program(input: &str) -> IResult<&str, Vec<Exp>> {
     map(
-        tuple((ws, many0(tuple((parse_exp, ws, tag(";"), ws))))),
+        tuple((junk, many0(tuple((parse_exp, junk, tag(";"), junk))))),
         |(_, exps)| exps.into_iter().map(|(exp, _, _, _)| exp).collect(),
     )(input)
 }
@@ -109,7 +112,7 @@ fn parse_exp(input: &str) -> IResult<&str, Exp> {
 fn parse_let(input: &str) -> IResult<&str, Exp> {
     alt((
         map(
-            tuple((parse_var, ws, tag("="), ws, parse_select)),
+            tuple((parse_var, junk, tag("="), junk, parse_select)),
             |(var, _, _, _, exp)| Exp::Let(Let(var, Box::new(exp))),
         ),
         parse_select,
@@ -118,14 +121,14 @@ fn parse_let(input: &str) -> IResult<&str, Exp> {
 
 fn parse_select(input: &str) -> IResult<&str, Exp> {
     fn parse_select_vars(input: &str) -> IResult<&str, Vec<Var>> {
-        map(many0(tuple((parse_var, ws))), |vars| {
+        map(many0(tuple((parse_var, junk))), |vars| {
             vars.into_iter().map(|(var, _)| var).collect()
         })(input)
     }
 
     alt((
         map(
-            tuple((parse_select_vars, ws, tag("<-"), ws, parse_select)),
+            tuple((parse_select_vars, junk, tag("<-"), junk, parse_select)),
             |(vars, _, _, _, exp)| Exp::Select(Select(vars, Box::new(exp))),
         ),
         parse_where,
@@ -195,7 +198,7 @@ fn parse_row(input: &str) -> IResult<&str, Exp> {
 fn parse_cell(input: &str) -> IResult<&str, Exp> {
     alt((
         map(
-            tuple((parse_var, ws, tag(":"), ws, parse_cell)),
+            tuple((parse_var, junk, tag(":"), junk, parse_cell)),
             |(var, _, _, _, exp)| Exp::Cell(Cell(var, Box::new(exp))),
         ),
         parse_equals,
@@ -236,7 +239,7 @@ fn parse_atom(input: &str) -> IResult<&str, Exp> {
 
 fn parse_parens(input: &str) -> IResult<&str, Exp> {
     map(
-        tuple((tag("("), ws, parse_exp, ws, tag(")"))),
+        tuple((tag("("), junk, parse_exp, junk, tag(")"))),
         |(_, _, exp, _, _)| exp,
     )(input)
 }
@@ -282,7 +285,7 @@ fn parse_binary_op<'a>(
 ) -> IResult<&'a str, Exp> {
     alt((
         map(
-            tuple((parse_left, ws, tag(op), ws, parse_right)),
+            tuple((parse_left, junk, tag(op), junk, parse_right)),
             |(l, _, _, _, r)| constructor(Box::new(l), Box::new(r)),
         ),
         parse_left,
@@ -297,29 +300,97 @@ fn parse_unary_op<'a>(
     parse_right: fn(&str) -> IResult<&str, Exp>,
 ) -> IResult<&'a str, Exp> {
     alt((
-        map(tuple((tag(op), ws, parse_right)), |(_, _, r)| {
+        map(tuple((tag(op), junk, parse_right)), |(_, _, r)| {
             constructor(Box::new(r))
         }),
         parse_left,
     ))(input)
 }
 
-fn multi_line_comment(input: &str) -> IResult<&str, ()> {
-    value((), tuple((tag("/*"), take_until("*/"), tag("*/"))))(input)
+fn junk(input: &str) -> IResult<&str, ()> {
+    value(
+        (),
+        many0(alt((whitespace, line_comment, multi_line_comment))),
+    )(input)
+}
+
+fn whitespace(input: &str) -> IResult<&str, ()> {
+    value((), multispace1)(input)
 }
 
 fn line_comment(input: &str) -> IResult<&str, ()> {
     value((), pair(tag("--"), is_not("\n")))(input)
 }
 
-fn ws(input: &str) -> IResult<&str, ()> {
-    value((), multispace0)(input)
+fn multi_line_comment(input: &str) -> IResult<&str, ()> {
+    value((), tuple((tag("/*"), take_until("*/"), tag("*/"))))(input)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
     use nom::{error::Error, Err};
+
+    #[test]
+    fn test_parse_program() {
+        assert_eq!(
+            parse_program(
+                r#"
+/* welcome to
+my database */
+
+Staff =
+  name: 'Alice', id: 1. -- first row
+  name: 'Bob', id: 2;   -- second row
+
+bob = name /* columns... */ <- Staff ? name == 'Bob';
+"#
+            ),
+            Ok((
+                "",
+                vec![
+                    Exp::Let(Let(
+                        Var("Staff".to_string()),
+                        Box::new(Exp::Table(Table(
+                            Box::new(Exp::Row(Row(
+                                Box::new(Exp::Cell(Cell(
+                                    Var("name".to_string()),
+                                    Box::new(Exp::Str(Str("Alice".to_string())))
+                                ))),
+                                Box::new(Exp::Cell(Cell(
+                                    Var("id".to_string()),
+                                    Box::new(Exp::Int(Int(1)))
+                                )))
+                            ))),
+                            Box::new(Exp::Row(Row(
+                                Box::new(Exp::Cell(Cell(
+                                    Var("name".to_string()),
+                                    Box::new(Exp::Str(Str("Bob".to_string())))
+                                ))),
+                                Box::new(Exp::Cell(Cell(
+                                    Var("id".to_string()),
+                                    Box::new(Exp::Int(Int(2)))
+                                )))
+                            )))
+                        )))
+                    )),
+                    Exp::Let(Let(
+                        Var("bob".to_string()),
+                        Box::new(Exp::Select(Select(
+                            vec![Var("name".to_string())],
+                            Box::new(Exp::Where(Where(
+                                Box::new(Exp::Var(Var("Staff".to_string()))),
+                                Box::new(Exp::Equals(Equals(
+                                    Box::new(Exp::Var(Var("name".to_string()))),
+                                    Box::new(Exp::Str(Str("Bob".to_string())))
+                                )))
+                            )))
+                        )))
+                    ))
+                ]
+            ))
+        );
+    }
 
     #[test]
     fn test_parse_exp() {
@@ -546,9 +617,9 @@ mod test {
     }
 
     #[test]
-    fn test_ws() {
-        assert_eq!(ws(" "), Ok(("", ())));
-        assert_eq!(ws("\n"), Ok(("", ())));
+    fn test_junk() {
+        assert_eq!(junk(" "), Ok(("", ())));
+        assert_eq!(junk("\n"), Ok(("", ())));
     }
 
     #[test]
