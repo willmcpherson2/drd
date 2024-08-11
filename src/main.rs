@@ -78,7 +78,7 @@ struct Var(String);
 
 fn main() {
     println!(
-        "{:?}",
+        "{:#?}",
         parse_program(
             "Staff = [{name 'Alice'} {name 'Bob'}]; bob = name <- Staff ? name == 'Bob';"
         )
@@ -86,9 +86,10 @@ fn main() {
 }
 
 fn parse_program(input: &str) -> IResult<&str, Vec<Exp>> {
-    map(many0(tuple((parse_exp, tag(";")))), |exps| {
-        exps.into_iter().map(|(exp, _)| exp).collect()
-    })(input)
+    map(
+        tuple((ws, many0(tuple((parse_exp, ws, tag(";"), ws))))),
+        |(_, exps)| exps.into_iter().map(|(exp, _, _, _)| exp).collect(),
+    )(input)
 }
 
 fn parse_exp(input: &str) -> IResult<&str, Exp> {
