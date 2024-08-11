@@ -9,7 +9,7 @@ https://cs186berkeley.net/notes/note6/
 (Lowest to highest precedence)
 
 ```
-Program     exp; exp
+Program     exp ...
 
 Let         var = exp
 
@@ -19,7 +19,7 @@ Union       exp + exp
 Difference  exp - exp
 Product     exp * exp
 
-Table       exp. exp
+Table       exp; exp
 Row         exp, exp
 Cell        var: exp
 
@@ -43,7 +43,7 @@ SQL: `SELECT`
 Example: `SELECT column FROM table;`
 
 ```
-column <- table;
+column <- table
 ```
 
 ### Selection (σ)
@@ -53,7 +53,7 @@ SQL: `WHERE`
 Example: `SELECT * FROM table WHERE condition;`
 
 ```
-* <- table ? condition;
+* <- table ? condition
 ```
 
 ### Cartesian product (×)
@@ -63,7 +63,7 @@ SQL: `A, B` or `CROSS JOIN`
 Example: `SELECT * FROM table1, table2;`
 
 ```
-* <- table1 * table2;
+* <- table1 * table2
 ```
 
 ### Union (∪)
@@ -73,7 +73,7 @@ SQL: `UNION`
 Example: `SELECT * FROM table1 UNION SELECT * FROM table2;`
 
 ```
-(* <- table1) + (* <- table2);
+(* <- table1) + (* <- table2)
 ```
 
 ### Set difference (-)
@@ -83,7 +83,7 @@ SQL: `EXCEPT` or `MINUS`
 Example: `SELECT * FROM table1 EXCEPT SELECT * FROM table2;`
 
 ```
-(* <- table1) - (* <- table2);
+(* <- table1) - (* <- table2)
 ```
 
 ### Rename (ρ)
@@ -95,5 +95,5 @@ SQL: `AS`
 Example: `SELECT column AS new_name FROM table;`
 
 ```
-(column := new_name) <- table;
+(column := new_name) <- table
 ```

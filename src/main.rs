@@ -89,20 +89,19 @@ fn main() {
 my database */
 
 Staff =
-  name: 'Alice'. -- first row
-  name: 'Bob';   -- second row
+  name: 'Alice'; -- first row
+  name: 'Bob'    -- second row
 
-bob = name /* add more columns here */ <- Staff ? name == 'Bob';
+bob = name /* add more columns here */ <- Staff ? name == 'Bob'
 "#
         )
     );
 }
 
 fn parse_program(input: &str) -> IResult<&str, Vec<Exp>> {
-    map(
-        tuple((junk, many0(tuple((parse_exp, junk, tag(";"), junk))))),
-        |(_, exps)| exps.into_iter().map(|(exp, _, _, _)| exp).collect(),
-    )(input)
+    map(tuple((junk, many0(pair(parse_exp, junk)))), |(_, exps)| {
+        exps.into_iter().map(|(exp, _)| exp).collect()
+    })(input)
 }
 
 fn parse_exp(input: &str) -> IResult<&str, Exp> {
@@ -180,7 +179,7 @@ fn parse_table(input: &str) -> IResult<&str, Exp> {
         input,
         |l, r| Exp::Table(Table(l, r)),
         parse_row,
-        ".",
+        ";",
         parse_table,
     )
 }
@@ -340,10 +339,10 @@ mod test {
 my database */
 
 Staff =
-  name: 'Alice', id: 1. -- first row
-  name: 'Bob', id: 2;   -- second row
+  name: 'Alice', id: 1; -- first row
+  name: 'Bob', id: 2    -- second row
 
-bob = name /* columns... */ <- Staff ? name == 'Bob';
+bob = name /* columns... */ <- Staff ? name == 'Bob'
 "#
             ),
             Ok((
@@ -474,7 +473,7 @@ bob = name /* columns... */ <- Staff ? name == 'Bob';
     #[test]
     fn test_parse_table() {
         assert_eq!(
-            parse_table("name: 'Alice', id: 1. name: 'Bob', id: 2"),
+            parse_table("name: 'Alice', id: 1; name: 'Bob', id: 2"),
             Ok((
                 "",
                 Exp::Table(Table(
