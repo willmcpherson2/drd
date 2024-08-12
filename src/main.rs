@@ -146,60 +146,66 @@ fn parse_select(input: &str) -> IResult<&str, Exp> {
 fn parse_where(input: &str) -> IResult<&str, Exp> {
     parse_binary_op(
         input,
-        |l, r| Exp::Where(Where(l, r)),
+        |l, r| Exp::Where(Where(Box::new(l), Box::new(r))),
         parse_union,
         "?",
         parse_where,
+        parse_union,
     )
 }
 
 fn parse_union(input: &str) -> IResult<&str, Exp> {
     parse_binary_op(
         input,
-        |l, r| Exp::Union(Union(l, r)),
+        |l, r| Exp::Union(Union(Box::new(l), Box::new(r))),
         parse_difference,
         "+",
         parse_union,
+        parse_difference,
     )
 }
 
 fn parse_difference(input: &str) -> IResult<&str, Exp> {
     parse_binary_op(
         input,
-        |l, r| Exp::Difference(Difference(l, r)),
+        |l, r| Exp::Difference(Difference(Box::new(l), Box::new(r))),
         parse_product,
         "-",
         parse_difference,
+        parse_product,
     )
 }
 
 fn parse_product(input: &str) -> IResult<&str, Exp> {
     parse_binary_op(
         input,
-        |l, r| Exp::Product(Product(l, r)),
+        |l, r| Exp::Product(Product(Box::new(l), Box::new(r))),
         parse_table,
         "*",
         parse_product,
+        parse_table,
     )
 }
 
 fn parse_table(input: &str) -> IResult<&str, Exp> {
     parse_binary_op(
         input,
-        |l, r| Exp::Table(Table(l, r)),
+        |l, r| Exp::Table(Table(Box::new(l), Box::new(r))),
         parse_row,
         ";",
         parse_table,
+        parse_row,
     )
 }
 
 fn parse_row(input: &str) -> IResult<&str, Exp> {
     parse_binary_op(
         input,
-        |l, r| Exp::Row(Row(l, r)),
+        |l, r| Exp::Row(Row(Box::new(l), Box::new(r))),
         parse_cell,
         ",",
         parse_row,
+        parse_cell,
     )
 }
 
@@ -216,19 +222,34 @@ fn parse_cell(input: &str) -> IResult<&str, Exp> {
 fn parse_equals(input: &str) -> IResult<&str, Exp> {
     parse_binary_op(
         input,
-        |l, r| Exp::Equals(Equals(l, r)),
+        |l, r| Exp::Equals(Equals(Box::new(l), Box::new(r))),
         parse_or,
         "==",
         parse_equals,
+        parse_or,
     )
 }
 
 fn parse_or(input: &str) -> IResult<&str, Exp> {
-    parse_binary_op(input, |l, r| Exp::Or(Or(l, r)), parse_and, "|", parse_or)
+    parse_binary_op(
+        input,
+        |l, r| Exp::Or(Or(Box::new(l), Box::new(r))),
+        parse_and,
+        "|",
+        parse_or,
+        parse_and,
+    )
 }
 
 fn parse_and(input: &str) -> IResult<&str, Exp> {
-    parse_binary_op(input, |l, r| Exp::And(And(l, r)), parse_not, "&", parse_and)
+    parse_binary_op(
+        input,
+        |l, r| Exp::And(And(Box::new(l), Box::new(r))),
+        parse_not,
+        "&",
+        parse_and,
+        parse_not,
+    )
 }
 
 fn parse_not(input: &str) -> IResult<&str, Exp> {
@@ -284,19 +305,20 @@ fn parse_var(input: &str) -> IResult<&str, Var> {
     )(input)
 }
 
-fn parse_binary_op<'a>(
+fn parse_binary_op<'a, L, R, T>(
     input: &'a str,
-    constructor: fn(Box<Exp>, Box<Exp>) -> Exp,
-    parse_left: fn(&str) -> IResult<&str, Exp>,
+    constructor: fn(L, R) -> T,
+    parse_left: fn(&str) -> IResult<&str, L>,
     op: &'static str,
-    parse_right: fn(&str) -> IResult<&str, Exp>,
-) -> IResult<&'a str, Exp> {
+    parse_right: fn(&str) -> IResult<&str, R>,
+    parse_next: fn(&str) -> IResult<&str, T>,
+) -> IResult<&'a str, T> {
     alt((
         map(
             tuple((parse_left, junk, tag(op), junk, parse_right)),
-            |(l, _, _, _, r)| constructor(Box::new(l), Box::new(r)),
+            |(l, _, _, _, r)| constructor(l, r),
         ),
-        parse_left,
+        parse_next,
     ))(input)
 }
 
