@@ -297,8 +297,8 @@ fn parse_int(input: &str) -> IResult<&str, Int> {
 
 fn parse_str(input: &str) -> IResult<&str, Str> {
     map(
-        tuple((tag("'"), recognize(many0(is_not("'"))), tag("'"))),
-        |(_, s, _): (_, &str, _)| Str(s.to_string()),
+        tuple((tag("'"), many0(is_not("'")), tag("'"))),
+        |(_, s, _)| Str(s.concat()),
     )(input)
 }
 
@@ -666,6 +666,7 @@ c, d <- e
 
     #[test]
     fn test_parse_str() {
+        assert_eq!(parse_str("''"), Ok(("", Str("".to_string()))));
         assert_eq!(parse_str("'hello'"), Ok(("", Str("hello".to_string()))));
         assert_eq!(
             parse_str("'hello'world"),
