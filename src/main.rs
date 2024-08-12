@@ -260,7 +260,13 @@ fn parse_and(input: &str) -> IResult<&str, Exp> {
 }
 
 fn parse_not(input: &str) -> IResult<&str, Exp> {
-    parse_unary_op(input, |exp| Exp::Not(Not(exp)), parse_atom, "!", parse_not)
+    parse_unary_op(
+        input,
+        |exp| Exp::Not(Not(Box::new(exp))),
+        "!",
+        parse_not,
+        parse_atom,
+    )
 }
 
 fn parse_atom(input: &str) -> IResult<&str, Exp> {
@@ -329,18 +335,18 @@ fn parse_binary_op<'a, L, R, T>(
     ))(input)
 }
 
-fn parse_unary_op<'a>(
+fn parse_unary_op<'a, R, T>(
     input: &'a str,
-    constructor: fn(Box<Exp>) -> Exp,
-    parse_left: fn(&str) -> IResult<&str, Exp>,
+    constructor: fn(R) -> T,
     op: &'static str,
-    parse_right: fn(&str) -> IResult<&str, Exp>,
-) -> IResult<&'a str, Exp> {
+    parse_right: fn(&str) -> IResult<&str, R>,
+    parse_next: fn(&str) -> IResult<&str, T>,
+) -> IResult<&'a str, T> {
     alt((
         map(tuple((tag(op), junk, parse_right)), |(_, _, r)| {
-            constructor(Box::new(r))
+            constructor(r)
         }),
-        parse_left,
+        parse_next,
     ))(input)
 }
 
