@@ -109,38 +109,32 @@ fn parse_exp(input: &str) -> IResult<&str, Exp> {
 }
 
 fn parse_let(input: &str) -> IResult<&str, Exp> {
-    alt((
-        map(
-            tuple((parse_var, junk, tag("="), junk, parse_select)),
-            |(var, _, _, _, exp)| Exp::Let(Let(var, Box::new(exp))),
-        ),
+    parse_binary_op(
+        input,
+        |l, r| Exp::Let(Let(l, Box::new(r))),
+        parse_var,
+        "=",
+        parse_let,
         parse_select,
-    ))(input)
+    )
 }
 
 fn parse_select(input: &str) -> IResult<&str, Exp> {
     fn parse_select_vars(input: &str) -> IResult<&str, Vec<Var>> {
-        map(many0(pair(parse_var, junk)), |vars| {
-            vars.into_iter().map(|(var, _)| var).collect()
-        })(input)
+        map(
+            tuple((tag("("), junk, many0(pair(parse_var, junk)), tag(")"))),
+            |(_, _, vars, _)| vars.into_iter().map(|(var, _)| var).collect(),
+        )(input)
     }
 
-    alt((
-        map(
-            tuple((
-                tag("("),
-                junk,
-                parse_select_vars,
-                tag(")"),
-                junk,
-                tag("<-"),
-                junk,
-                parse_select,
-            )),
-            |(_, _, vars, _, _, _, _, exp)| Exp::Select(Select(vars, Box::new(exp))),
-        ),
+    parse_binary_op(
+        input,
+        |l, r| Exp::Select(Select(l, Box::new(r))),
+        parse_select_vars,
+        "<-",
+        parse_select,
         parse_where,
-    ))(input)
+    )
 }
 
 fn parse_where(input: &str) -> IResult<&str, Exp> {
@@ -210,13 +204,14 @@ fn parse_row(input: &str) -> IResult<&str, Exp> {
 }
 
 fn parse_cell(input: &str) -> IResult<&str, Exp> {
-    alt((
-        map(
-            tuple((parse_var, junk, tag(":"), junk, parse_cell)),
-            |(var, _, _, _, exp)| Exp::Cell(Cell(var, Box::new(exp))),
-        ),
+    parse_binary_op(
+        input,
+        |l, r| Exp::Cell(Cell(l, Box::new(r))),
+        parse_var,
+        ":",
+        parse_cell,
         parse_equals,
-    ))(input)
+    )
 }
 
 fn parse_equals(input: &str) -> IResult<&str, Exp> {
