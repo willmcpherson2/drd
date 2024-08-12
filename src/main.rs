@@ -2,11 +2,14 @@ use nom::{
     branch::alt,
     bytes::complete::{is_not, tag, take_until},
     character::complete::{alpha1, alphanumeric1, digit1, multispace1},
-    combinator::{map, map_res, opt, recognize, value},
+    combinator::{fail, map, map_res, opt, recognize, value},
     multi::many0,
     sequence::{pair, tuple},
     IResult,
 };
+
+#[derive(Debug, PartialEq, Clone)]
+struct Program(Vec<Exp>);
 
 #[derive(Debug, PartialEq, Clone)]
 enum Exp {
@@ -98,9 +101,9 @@ bob = name /* add more columns here */ <- Staff ? name == 'Bob'
     );
 }
 
-fn parse_program(input: &str) -> IResult<&str, Vec<Exp>> {
+fn parse_program(input: &str) -> IResult<&str, Program> {
     map(tuple((junk, many0(pair(parse_exp, junk)))), |(_, exps)| {
-        exps.into_iter().map(|(exp, _)| exp).collect()
+        Program(exps.into_iter().map(|(exp, _)| exp).collect())
     })(input)
 }
 
@@ -121,10 +124,19 @@ fn parse_let(input: &str) -> IResult<&str, Exp> {
 
 fn parse_select(input: &str) -> IResult<&str, Exp> {
     fn parse_select_vars(input: &str) -> IResult<&str, Vec<Var>> {
-        map(
-            tuple((tag("("), junk, many0(pair(parse_var, junk)), tag(")"))),
-            |(_, _, vars, _)| vars.into_iter().map(|(var, _)| var).collect(),
-        )(input)
+        alt((
+            |input| {
+                parse_binary_op(
+                    input,
+                    |var, vars| [&[var], &vars[..]].concat(),
+                    parse_var,
+                    ",",
+                    parse_select_vars,
+                    |s| fail(s),
+                )
+            },
+            map(parse_var, |var| vec![var]),
+        ))(input)
     }
 
     parse_binary_op(
@@ -358,6 +370,47 @@ mod test {
 
     #[test]
     fn test_parse_program() {
+        let program = Program(vec![
+            Exp::Let(Let(
+                Var("Staff".to_string()),
+                Box::new(Exp::Table(Table(
+                    Box::new(Exp::Row(Row(
+                        Box::new(Exp::Cell(Cell(
+                            Var("name".to_string()),
+                            Box::new(Exp::Str(Str("Alice".to_string()))),
+                        ))),
+                        Box::new(Exp::Cell(Cell(
+                            Var("id".to_string()),
+                            Box::new(Exp::Int(Int(1))),
+                        ))),
+                    ))),
+                    Box::new(Exp::Row(Row(
+                        Box::new(Exp::Cell(Cell(
+                            Var("name".to_string()),
+                            Box::new(Exp::Str(Str("Bob".to_string()))),
+                        ))),
+                        Box::new(Exp::Cell(Cell(
+                            Var("id".to_string()),
+                            Box::new(Exp::Int(Int(2))),
+                        ))),
+                    ))),
+                ))),
+            )),
+            Exp::Let(Let(
+                Var("bob".to_string()),
+                Box::new(Exp::Select(Select(
+                    vec![Var("name".to_string())],
+                    Box::new(Exp::Where(Where(
+                        Box::new(Exp::Var(Var("Staff".to_string()))),
+                        Box::new(Exp::Equals(Equals(
+                            Box::new(Exp::Var(Var("name".to_string()))),
+                            Box::new(Exp::Str(Str("Bob".to_string()))),
+                        ))),
+                    ))),
+                ))),
+            )),
+        ]);
+
         assert_eq!(
             parse_program(
                 r#"
@@ -368,64 +421,27 @@ Staff =
   name: 'Alice', id: 1; -- first row
   name: 'Bob', id: 2    -- second row
 
-bob = (name /* columns... */) <- Staff ? name == 'Bob'
+bob = name /* columns... */ <- Staff ? name == 'Bob'
 "#
             ),
-            Ok((
-                "",
-                vec![
-                    Exp::Let(Let(
-                        Var("Staff".to_string()),
-                        Box::new(Exp::Table(Table(
-                            Box::new(Exp::Row(Row(
-                                Box::new(Exp::Cell(Cell(
-                                    Var("name".to_string()),
-                                    Box::new(Exp::Str(Str("Alice".to_string())))
-                                ))),
-                                Box::new(Exp::Cell(Cell(
-                                    Var("id".to_string()),
-                                    Box::new(Exp::Int(Int(1)))
-                                )))
-                            ))),
-                            Box::new(Exp::Row(Row(
-                                Box::new(Exp::Cell(Cell(
-                                    Var("name".to_string()),
-                                    Box::new(Exp::Str(Str("Bob".to_string())))
-                                ))),
-                                Box::new(Exp::Cell(Cell(
-                                    Var("id".to_string()),
-                                    Box::new(Exp::Int(Int(2)))
-                                )))
-                            )))
-                        )))
-                    )),
-                    Exp::Let(Let(
-                        Var("bob".to_string()),
-                        Box::new(Exp::Select(Select(
-                            vec![Var("name".to_string())],
-                            Box::new(Exp::Where(Where(
-                                Box::new(Exp::Var(Var("Staff".to_string()))),
-                                Box::new(Exp::Equals(Equals(
-                                    Box::new(Exp::Var(Var("name".to_string()))),
-                                    Box::new(Exp::Str(Str("Bob".to_string())))
-                                )))
-                            )))
-                        )))
-                    ))
-                ]
-            ))
+            Ok(("", program.clone()))
+        );
+
+        assert_eq!(
+            parse_program("Staff=name:'Alice',id:1;name:'Bob',id:2bob=name<-Staff?name=='Bob'"),
+            Ok(("", program.clone()))
         );
 
         assert_eq!(
             parse_program(
                 r#"
 a = b
-(c d) <- e
+c, d <- e
 "#
             ),
             Ok((
                 "",
-                vec![
+                Program(vec![
                     Exp::Let(Let(
                         Var("a".to_string()),
                         Box::new(Exp::Var(Var("b".to_string())))
@@ -434,7 +450,7 @@ a = b
                         vec![Var("c".to_string()), Var("d".to_string())],
                         Box::new(Exp::Var(Var("e".to_string())))
                     ))
-                ]
+                ])
             ))
         );
     }
@@ -483,14 +499,7 @@ a = b
     #[test]
     fn test_parse_select() {
         assert_eq!(
-            parse_select("() <- true"),
-            Ok((
-                "",
-                Exp::Select(Select(vec![], Box::new(Exp::Bool(Bool(true)))))
-            ))
-        );
-        assert_eq!(
-            parse_select("(x) <- true"),
+            parse_select("x <- true"),
             Ok((
                 "",
                 Exp::Select(Select(
@@ -500,7 +509,7 @@ a = b
             ))
         );
         assert_eq!(
-            parse_select("(x y) <- true"),
+            parse_select("x, y <- true"),
             Ok((
                 "",
                 Exp::Select(Select(
@@ -510,7 +519,7 @@ a = b
             ))
         );
         assert_eq!(
-            parse_select("(x y z) <- true"),
+            parse_select("x, y, z <- true"),
             Ok((
                 "",
                 Exp::Select(Select(

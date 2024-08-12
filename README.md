@@ -13,7 +13,7 @@ Program     exp ...
 
 Let         var = exp
 
-Select      var ... <- exp
+Select      var, var <- exp
 Where       exp ? exp
 Union       exp + exp
 Difference  exp - exp
