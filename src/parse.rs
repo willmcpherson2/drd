@@ -19,7 +19,7 @@ fn parse_let(input: &str) -> IResult<&str, Exp> {
         |l, m, r| Exp::Let(Let(l, Box::new(m), Box::new(r))),
         parse_var,
         "=",
-        parse_select,
+        parse_let,
         "",
         parse_let,
         parse_select,
@@ -386,6 +386,29 @@ c, d <- e
                         Box::new(Exp::Var(Var("e".to_string())))
                     )))
                 )),
+            ))
+        );
+
+        assert_eq!(
+            parse_exp(
+                r#"
+a =
+  b = c
+  d
+e
+"#
+            ),
+            Ok((
+                "",
+                Exp::Let(Let(
+                    Var("a".to_string()),
+                    Box::new(Exp::Let(Let(
+                        Var("b".to_string()),
+                        Box::new(Exp::Var(Var("c".to_string()))),
+                        Box::new(Exp::Var(Var("d".to_string())))
+                    ))),
+                    Box::new(Exp::Var(Var("e".to_string())))
+                ))
             ))
         );
     }
