@@ -9,22 +9,18 @@ use nom::{
     IResult,
 };
 
-pub fn parse_program(input: &str) -> IResult<&str, Program> {
-    map(tuple((junk, many0(pair(parse_exp, junk)))), |(_, exps)| {
-        Program(exps.into_iter().map(|(exp, _)| exp).collect())
-    })(input)
-}
-
-fn parse_exp(input: &str) -> IResult<&str, Exp> {
-    parse_let(input)
+pub fn parse_exp(input: &str) -> IResult<&str, Exp> {
+    map(tuple((junk, parse_let, junk)), |(_, exp, _)| exp)(input)
 }
 
 fn parse_let(input: &str) -> IResult<&str, Exp> {
-    parse_binary_op(
+    parse_ternary_op(
         input,
-        |l, r| Exp::Let(Let(l, Box::new(r))),
+        |l, m, r| Exp::Let(Let(l, Box::new(m), Box::new(r))),
         parse_var,
         "=",
+        parse_select,
+        "",
         parse_let,
         parse_select,
     )
@@ -188,10 +184,7 @@ fn parse_atom(input: &str) -> IResult<&str, Exp> {
 }
 
 fn parse_parens(input: &str) -> IResult<&str, Exp> {
-    map(
-        tuple((tag("("), junk, parse_exp, junk, tag(")"))),
-        |(_, _, exp, _, _)| exp,
-    )(input)
+    map(tuple((tag("("), parse_exp, tag(")"))), |(_, exp, _)| exp)(input)
 }
 
 fn parse_bool(input: &str) -> IResult<&str, Bool> {
@@ -224,6 +217,35 @@ fn parse_var(input: &str) -> IResult<&str, Var> {
         )),
         |s: &str| Var(s.to_string()),
     )(input)
+}
+
+fn parse_ternary_op<'a, L, M, R, T>(
+    input: &'a str,
+    constructor: fn(L, M, R) -> T,
+    parse_left: fn(&str) -> IResult<&str, L>,
+    op_left: &'static str,
+    parse_middle: fn(&str) -> IResult<&str, M>,
+    op_right: &'static str,
+    parse_right: fn(&str) -> IResult<&str, R>,
+    parse_next: fn(&str) -> IResult<&str, T>,
+) -> IResult<&'a str, T> {
+    alt((
+        map(
+            tuple((
+                parse_left,
+                junk,
+                tag(op_left),
+                junk,
+                parse_middle,
+                junk,
+                tag(op_right),
+                junk,
+                parse_right,
+            )),
+            |(l, _, _, _, m, _, _, _, r)| constructor(l, m, r),
+        ),
+        parse_next,
+    ))(input)
 }
 
 fn parse_binary_op<'a, L, R, T>(
@@ -284,33 +306,31 @@ mod test {
 
     #[test]
     fn test_parse_program() {
-        let program = Program(vec![
-            Exp::Let(Let(
-                Var("Staff".to_string()),
-                Box::new(Exp::Table(Table(
-                    Box::new(Exp::Row(Row(
-                        Box::new(Exp::Cell(Cell(
-                            Var("name".to_string()),
-                            Box::new(Exp::Str(Str("Alice".to_string()))),
-                        ))),
-                        Box::new(Exp::Cell(Cell(
-                            Var("id".to_string()),
-                            Box::new(Exp::Int(Int(1))),
-                        ))),
+        let program = Exp::Let(Let(
+            Var("Staff".to_string()),
+            Box::new(Exp::Table(Table(
+                Box::new(Exp::Row(Row(
+                    Box::new(Exp::Cell(Cell(
+                        Var("name".to_string()),
+                        Box::new(Exp::Str(Str("Alice".to_string()))),
                     ))),
-                    Box::new(Exp::Row(Row(
-                        Box::new(Exp::Cell(Cell(
-                            Var("name".to_string()),
-                            Box::new(Exp::Str(Str("Bob".to_string()))),
-                        ))),
-                        Box::new(Exp::Cell(Cell(
-                            Var("id".to_string()),
-                            Box::new(Exp::Int(Int(2))),
-                        ))),
+                    Box::new(Exp::Cell(Cell(
+                        Var("id".to_string()),
+                        Box::new(Exp::Int(Int(1))),
                     ))),
                 ))),
-            )),
-            Exp::Let(Let(
+                Box::new(Exp::Row(Row(
+                    Box::new(Exp::Cell(Cell(
+                        Var("name".to_string()),
+                        Box::new(Exp::Str(Str("Bob".to_string()))),
+                    ))),
+                    Box::new(Exp::Cell(Cell(
+                        Var("id".to_string()),
+                        Box::new(Exp::Int(Int(2))),
+                    ))),
+                ))),
+            ))),
+            Box::new(Exp::Let(Let(
                 Var("bob".to_string()),
                 Box::new(Exp::Select(Select(
                     vec![Var("name".to_string())],
@@ -322,11 +342,12 @@ mod test {
                         ))),
                     ))),
                 ))),
-            )),
-        ]);
+                Box::new(Exp::Var(Var("bob".to_string()))),
+            ))),
+        ));
 
         assert_eq!(
-            parse_program(
+            parse_exp(
                 r#"
 /* welcome to
 my database */
@@ -336,18 +357,20 @@ Staff =
   name: 'Bob', id: 2    -- second row
 
 bob = name /* columns... */ <- Staff ? name == 'Bob'
+
+bob
 "#
             ),
             Ok(("", program.clone()))
         );
 
         assert_eq!(
-            parse_program("Staff=name:'Alice',id:1;name:'Bob',id:2bob=name<-Staff?name=='Bob'"),
+            parse_exp("Staff=name:'Alice',id:1;name:'Bob',id:2bob=name<-Staff?name=='Bob'bob"),
             Ok(("", program.clone()))
         );
 
         assert_eq!(
-            parse_program(
+            parse_exp(
                 r#"
 a = b
 c, d <- e
@@ -355,16 +378,14 @@ c, d <- e
             ),
             Ok((
                 "",
-                Program(vec![
-                    Exp::Let(Let(
-                        Var("a".to_string()),
-                        Box::new(Exp::Var(Var("b".to_string())))
-                    )),
-                    Exp::Select(Select(
+                Exp::Let(Let(
+                    Var("a".to_string()),
+                    Box::new(Exp::Var(Var("b".to_string()))),
+                    Box::new(Exp::Select(Select(
                         vec![Var("c".to_string()), Var("d".to_string())],
                         Box::new(Exp::Var(Var("e".to_string())))
-                    ))
-                ])
+                    )))
+                )),
             ))
         );
     }
@@ -389,14 +410,18 @@ c, d <- e
     #[test]
     fn test_parse_let() {
         assert_eq!(
-            parse_let("x = true"),
+            parse_let("x = true false"),
             Ok((
                 "",
-                Exp::Let(Let(Var("x".to_string()), Box::new(Exp::Bool(Bool(true)))))
+                Exp::Let(Let(
+                    Var("x".to_string()),
+                    Box::new(Exp::Bool(Bool(true))),
+                    Box::new(Exp::Bool(Bool(false)))
+                ))
             ))
         );
         assert_eq!(
-            parse_let("x = true | false"),
+            parse_let("x = true | false y"),
             Ok((
                 "",
                 Exp::Let(Let(
@@ -404,10 +429,17 @@ c, d <- e
                     Box::new(Exp::Or(Or(
                         Box::new(Exp::Bool(Bool(true))),
                         Box::new(Exp::Bool(Bool(false)))
-                    )))
+                    ))),
+                    Box::new(Exp::Var(Var("y".to_string()))),
                 ))
             ))
         );
+    }
+
+    // TODO: slow
+    #[test]
+    fn test_parse_nested_let() {
+        assert_eq!(parse_exp("(1)"), Ok(("", Exp::Int(Int(1)))));
     }
 
     #[test]

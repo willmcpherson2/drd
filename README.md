@@ -9,9 +9,7 @@ https://cs186berkeley.net/notes/note6/
 (Lowest to highest precedence)
 
 ```
-Program     exp ...
-
-Let         var = exp
+Let         var = exp exp
 
 Select      var, var <- exp
 Where       exp ? exp

@@ -1,7 +1,4 @@
 #[derive(Debug, PartialEq, Clone)]
-pub struct Program(pub Vec<Exp>);
-
-#[derive(Debug, PartialEq, Clone)]
 pub enum Exp {
     Let(Let),
     Select(Select),
@@ -23,7 +20,7 @@ pub enum Exp {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Let(pub Var, pub Box<Exp>);
+pub struct Let(pub Var, pub Box<Exp>, pub Box<Exp>);
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Select(pub Vec<Var>, pub Box<Exp>);

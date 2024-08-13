@@ -1,4 +1,4 @@
-use crate::{eval::eval_program, parse::parse_program};
+use crate::{eval::eval_exp, parse::parse_exp};
 
 use std::{env, fs};
 
@@ -20,7 +20,7 @@ fn main() {
         }
     };
 
-    let program = match parse_program(&input) {
+    let program = match parse_exp(&input) {
         Ok((_, program)) => program,
         Err(e) => {
             eprintln!("Error parsing program: {}", e);
@@ -28,7 +28,7 @@ fn main() {
         }
     };
 
-    let program = match eval_program(program) {
+    let program = match eval_exp(program) {
         Ok(program) => program,
         Err(e) => {
             eprintln!("Error evaluating program: {}", e);
