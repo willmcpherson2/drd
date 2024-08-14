@@ -3,8 +3,8 @@ use std::fs;
 
 use crate::{eval::eval_exp, parse::parse_exp};
 
-mod ast;
 mod eval;
+mod exp;
 mod parse;
 
 /// The Drd programming language
