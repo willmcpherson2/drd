@@ -305,7 +305,7 @@ mod test {
     use nom::{error::Error, Err};
 
     #[test]
-    fn test_parse_program() {
+    fn test_program() {
         let program = Exp::Let(Let(
             Var("Staff".to_string()),
             Box::new(Exp::Table(Table(
@@ -414,7 +414,7 @@ e
     }
 
     #[test]
-    fn test_parse_exp() {
+    fn test_exp() {
         assert_eq!(
             parse_exp("true | false & !true"),
             Ok((
@@ -431,7 +431,7 @@ e
     }
 
     #[test]
-    fn test_parse_let() {
+    fn test_let() {
         assert_eq!(
             parse_let("x = true false"),
             Ok((
@@ -461,12 +461,12 @@ e
 
     // TODO: slow
     #[test]
-    fn test_parse_nested_let() {
+    fn test_parens() {
         assert_eq!(parse_exp("(1)"), Ok(("", Exp::Int(Int(1)))));
     }
 
     #[test]
-    fn test_parse_select() {
+    fn test_select() {
         assert_eq!(
             parse_select("x <- true"),
             Ok((
@@ -504,7 +504,7 @@ e
     }
 
     #[test]
-    fn test_parse_table() {
+    fn test_table() {
         assert_eq!(
             parse_table("name: 'Alice', id: 1; name: 'Bob', id: 2"),
             Ok((
@@ -536,7 +536,7 @@ e
     }
 
     #[test]
-    fn test_parse_or() {
+    fn test_or() {
         assert_eq!(
             parse_or("true | false"),
             Ok((
@@ -563,7 +563,7 @@ e
     }
 
     #[test]
-    fn test_parse_and() {
+    fn test_and() {
         assert_eq!(
             parse_and("true & false"),
             Ok((
@@ -590,7 +590,7 @@ e
     }
 
     #[test]
-    fn test_parse_not() {
+    fn test_not() {
         assert_eq!(
             parse_not("! true"),
             Ok(("", Exp::Not(Not(Box::new(Exp::Bool(Bool(true)))))))
@@ -611,7 +611,7 @@ e
     }
 
     #[test]
-    fn test_parse_atom() {
+    fn test_atom() {
         assert_eq!(parse_atom("true"), Ok(("", Exp::Bool(Bool(true)))));
         assert_eq!(parse_atom("123"), Ok(("", Exp::Int(Int(123)))));
         assert_eq!(
@@ -622,19 +622,19 @@ e
     }
 
     #[test]
-    fn test_parse_bool() {
+    fn test_bool() {
         assert_eq!(parse_bool("true"), Ok(("", Bool(true))));
         assert_eq!(parse_bool("false"), Ok(("", Bool(false))));
     }
 
     #[test]
-    fn test_parse_int() {
+    fn test_int() {
         assert_eq!(parse_int("123"), Ok(("", Int(123))));
         assert_eq!(parse_int("-42hello"), Ok(("hello", Int(-42))));
     }
 
     #[test]
-    fn test_parse_str() {
+    fn test_str() {
         assert_eq!(parse_str("''"), Ok(("", Str("".to_string()))));
         assert_eq!(parse_str("'hello'"), Ok(("", Str("hello".to_string()))));
         assert_eq!(
@@ -644,7 +644,7 @@ e
     }
 
     #[test]
-    fn test_parse_var() {
+    fn test_var() {
         assert_eq!(parse_var("x"), Ok(("", Var("x".to_string()))));
         assert_eq!(parse_var("_x_1"), Ok(("", Var("_x_1".to_string()))));
     }
