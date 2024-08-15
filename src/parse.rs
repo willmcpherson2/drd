@@ -5,12 +5,12 @@ use nom::{
     character::complete::{alpha1, alphanumeric1, digit1, multispace1},
     combinator::{fail, map, map_res, opt, recognize, value},
     multi::many0,
-    sequence::{pair, tuple},
+    sequence::{delimited, pair, tuple},
     IResult,
 };
 
 pub fn parse_exp(input: &str) -> IResult<&str, Exp> {
-    map(tuple((junk, parse_let, junk)), |(_, exp, _)| exp)(input)
+    delimited(junk, parse_let, junk)(input)
 }
 
 fn parse_let(input: &str) -> IResult<&str, Exp> {
@@ -184,7 +184,7 @@ fn parse_atom(input: &str) -> IResult<&str, Exp> {
 }
 
 fn parse_parens(input: &str) -> IResult<&str, Exp> {
-    map(tuple((tag("("), parse_exp, tag(")"))), |(_, exp, _)| exp)(input)
+    delimited(tag("("), parse_exp, tag(")"))(input)
 }
 
 fn parse_bool(input: &str) -> IResult<&str, Bool> {
@@ -203,10 +203,9 @@ fn parse_int(input: &str) -> IResult<&str, Int> {
 }
 
 fn parse_str(input: &str) -> IResult<&str, Str> {
-    map(
-        tuple((tag("'"), many0(is_not("'")), tag("'"))),
-        |(_, s, _)| Str(s.concat()),
-    )(input)
+    map(delimited(tag("'"), many0(is_not("'")), tag("'")), |s| {
+        Str(s.concat())
+    })(input)
 }
 
 fn parse_var(input: &str) -> IResult<&str, Var> {
