@@ -1,7 +1,7 @@
 use clap::Parser;
-use std::{collections::HashMap, fs};
+use std::fs;
 
-use crate::{eval::eval_exp, parse::parse_exp};
+use crate::{eval::eval, parse::parse};
 
 mod eval;
 mod exp;
@@ -38,7 +38,7 @@ fn main() {
         return;
     };
 
-    let program = match parse_exp(&text) {
+    let program = match parse(&text) {
         Ok((_, program)) => program,
         Err(e) => {
             eprintln!("Error parsing program: {}", e);
@@ -46,7 +46,7 @@ fn main() {
         }
     };
 
-    let program = match eval_exp(program, HashMap::new()) {
+    let program = match eval(program) {
         Ok(program) => program,
         Err(e) => {
             eprintln!("Error evaluating program: {}", e);

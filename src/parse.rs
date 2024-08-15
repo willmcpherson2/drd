@@ -3,13 +3,17 @@ use nom::{
     branch::alt,
     bytes::complete::{is_not, tag, take_until},
     character::complete::{alpha1, alphanumeric1, digit1, multispace1},
-    combinator::{fail, map, map_res, opt, recognize, value},
+    combinator::{all_consuming, fail, map, map_res, opt, recognize, value},
     multi::many0,
     sequence::{delimited, pair, tuple},
     IResult,
 };
 
-pub fn parse_exp(input: &str) -> IResult<&str, Exp> {
+pub fn parse(input: &str) -> IResult<&str, Exp> {
+    all_consuming(parse_exp)(input)
+}
+
+fn parse_exp(input: &str) -> IResult<&str, Exp> {
     delimited(junk, parse_let, junk)(input)
 }
 
@@ -346,7 +350,7 @@ mod test {
         ));
 
         assert_eq!(
-            parse_exp(
+            parse(
                 r#"
 /* welcome to
 my database */
@@ -364,12 +368,12 @@ bob
         );
 
         assert_eq!(
-            parse_exp("Staff=name:'Alice',id:1;name:'Bob',id:2bob=name<-Staff?name=='Bob'bob"),
+            parse("Staff=name:'Alice',id:1;name:'Bob',id:2bob=name<-Staff?name=='Bob'bob"),
             Ok(("", program.clone()))
         );
 
         assert_eq!(
-            parse_exp(
+            parse(
                 r#"
 a = b
 c, d <- e
@@ -389,7 +393,7 @@ c, d <- e
         );
 
         assert_eq!(
-            parse_exp(
+            parse(
                 r#"
 a =
   b = c

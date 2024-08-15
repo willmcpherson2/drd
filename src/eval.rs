@@ -4,7 +4,11 @@ use crate::exp::*;
 
 type Env = HashMap<String, Exp>;
 
-pub fn eval_exp(exp: Exp, mut env: Env) -> Result<Exp, String> {
+pub fn eval(exp: Exp) -> Result<Exp, String> {
+    eval_exp(exp, HashMap::new())
+}
+
+fn eval_exp(exp: Exp, mut env: Env) -> Result<Exp, String> {
     match exp {
         Exp::Let(Let(Var(var), exp, body)) => {
             let exp = eval_exp(*exp, env.clone())?;
