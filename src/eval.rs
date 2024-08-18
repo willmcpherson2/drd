@@ -10,66 +10,66 @@ pub fn eval(exp: Exp) -> Result<Exp, String> {
 
 fn eval_exp(exp: Exp, mut env: Env) -> Result<Exp, String> {
     match exp {
-        Exp::Let(Let(Var(var), exp, body)) => {
+        Exp::Let(var, exp, body) => {
             let exp = eval_exp(*exp, env.clone())?;
             env.insert(var, exp);
             let body = eval_exp(*body, env)?;
             Ok(body)
         }
-        Exp::Select(_) => todo!(),
-        Exp::Where(_) => todo!(),
-        Exp::Union(_) => todo!(),
-        Exp::Difference(_) => todo!(),
-        Exp::Product(_) => todo!(),
-        Exp::Table(Table(l, r)) => {
+        Exp::Select(_, _) => todo!(),
+        Exp::Where(_, _) => todo!(),
+        Exp::Union(_, _) => todo!(),
+        Exp::Difference(_, _) => todo!(),
+        Exp::Product(_, _) => todo!(),
+        Exp::Table(l, r) => {
             let l = eval_exp(*l, env.clone())?;
             let r = eval_exp(*r, env)?;
-            Ok(Exp::Table(Table(Box::new(l), Box::new(r))))
+            Ok(Exp::Table(Box::new(l), Box::new(r)))
         }
-        Exp::Row(Row(l, r)) => {
+        Exp::Row(l, r) => {
             let l = eval_exp(*l, env.clone())?;
             let r = eval_exp(*r, env)?;
-            Ok(Exp::Row(Row(Box::new(l), Box::new(r))))
+            Ok(Exp::Row(Box::new(l), Box::new(r)))
         }
-        Exp::Cell(Cell(var, exp)) => {
+        Exp::Cell(var, exp) => {
             let exp = eval_exp(*exp, env)?;
-            Ok(Exp::Cell(Cell(var, Box::new(exp))))
+            Ok(Exp::Cell(var, Box::new(exp)))
         }
-        Exp::Or(Or(l, r)) => {
+        Exp::Or(l, r) => {
             let l = eval_exp(*l, env.clone())?;
-            if let Exp::Bool(Bool(true)) = l {
-                return Ok(Exp::Bool(Bool(true)));
+            if let Exp::Bool(true) = l {
+                return Ok(Exp::Bool(true));
             }
             let r = eval_exp(*r, env)?;
-            if let Exp::Bool(Bool(true)) = r {
-                return Ok(Exp::Bool(Bool(true)));
+            if let Exp::Bool(true) = r {
+                return Ok(Exp::Bool(true));
             }
-            Ok(Exp::Bool(Bool(false)))
+            Ok(Exp::Bool(false))
         }
-        Exp::Equals(Equals(l, r)) => {
+        Exp::Equals(l, r) => {
             let l = eval_exp(*l, env.clone())?;
             let r = eval_exp(*r, env)?;
-            Ok(Exp::Bool(Bool(l == r)))
+            Ok(Exp::Bool(l == r))
         }
-        Exp::And(And(l, r)) => {
+        Exp::And(l, r) => {
             let l = eval_exp(*l, env.clone())?;
-            if let Exp::Bool(Bool(false)) = l {
-                return Ok(Exp::Bool(Bool(false)));
+            if let Exp::Bool(false) = l {
+                return Ok(Exp::Bool(false));
             }
             let r = eval_exp(*r, env)?;
-            if let Exp::Bool(Bool(false)) = r {
-                return Ok(Exp::Bool(Bool(false)));
+            if let Exp::Bool(false) = r {
+                return Ok(Exp::Bool(false));
             }
-            Ok(Exp::Bool(Bool(true)))
+            Ok(Exp::Bool(true))
         }
-        Exp::Not(Not(exp)) => {
+        Exp::Not(exp) => {
             let exp = eval_exp(*exp, env)?;
             match exp {
-                Exp::Bool(Bool(bool)) => Ok(Exp::Bool(Bool(!bool))),
+                Exp::Bool(bool) => Ok(Exp::Bool(!bool)),
                 _ => Err(format!("Expected boolean, found {:?}", exp)),
             }
         }
-        Exp::Var(Var(var)) => match env.get(&var) {
+        Exp::Var(var) => match env.get(&var) {
             Some(exp) => Ok(exp.clone()),
             None => Err(format!("Variable `{}` not defined", var)),
         },

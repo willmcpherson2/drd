@@ -39,7 +39,7 @@ fn main() {
     };
 
     let program = match parse(&text) {
-        Ok((_, program)) => program,
+        Ok(program) => program,
         Err(e) => {
             eprintln!("Error parsing program: {}", e);
             return;
