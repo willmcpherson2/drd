@@ -30,8 +30,7 @@ enum Op {
     Difference,
     Product,
     Table,
-    Row,
-    Cell,
+    Item,
     Or,
     Equals,
     And,
@@ -42,6 +41,7 @@ impl Op {
     fn right_associative(&self) -> bool {
         match *self {
             Op::In => true,
+            Op::Item => true,
             _ => false,
         }
     }
@@ -56,12 +56,11 @@ impl Op {
             Op::Difference => 6,
             Op::Product => 7,
             Op::Table => 8,
-            Op::Row => 9,
-            Op::Cell => 10,
-            Op::Or => 11,
-            Op::Equals => 12,
-            Op::And => 13,
-            Op::App => 14,
+            Op::Item => 9,
+            Op::Or => 10,
+            Op::Equals => 11,
+            Op::And => 12,
+            Op::App => 13,
         }
     }
 }
@@ -88,10 +87,7 @@ fn parse_exp(bexp: Bexp) -> Result<Exp, String> {
                 bexp => Err(format!("expected let, got {:?}", bexp)),
             },
             Op::Let => Err(format!("let not allowed here")),
-            Op::Select => match parse_exp(*l)? {
-                Var(l) => Ok(Select(vec![l], Box::new(parse_exp(*r)?))),
-                exp => Err(format!("expected var, got {:?}", exp)),
-            },
+            Op::Select => Ok(Select(parse_var_list(*l)?, Box::new(parse_exp(*r)?))),
             Op::Where => Ok(Where(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
             Op::Union => Ok(Union(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
             Op::Difference => Ok(Difference(
@@ -99,12 +95,8 @@ fn parse_exp(bexp: Bexp) -> Result<Exp, String> {
                 Box::new(parse_exp(*r)?),
             )),
             Op::Product => Ok(Product(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
-            Op::Table => Ok(Table(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
-            Op::Row => Ok(Row(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
-            Op::Cell => match parse_exp(*l)? {
-                Var(l) => Ok(Cell(l, Box::new(parse_exp(*r)?))),
-                exp => Err(format!("expected var, got {:?}", exp)),
-            },
+            Op::Table => Ok(Table(parse_var_list(*l)?, parse_exp_list(*r)?)),
+            Op::Item => Err(format!("item not allowed here")),
             Op::Or => Ok(Or(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
             Op::Equals => Ok(Equals(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
             Op::And => Ok(And(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
@@ -121,6 +113,33 @@ fn parse_exp(bexp: Bexp) -> Result<Exp, String> {
         Bexp::Int(int) => Ok(Int(int)),
         Bexp::Str(str) => Ok(Str(str)),
         Bexp::Var(var) => Ok(Exp::Var(var)),
+    }
+}
+
+fn parse_var_list(bexp: Bexp) -> Result<Vec<String>, String> {
+    match bexp {
+        Bexp::Var(var) => Ok(vec![var]),
+        Bexp::Binary(var, Op::Item, vars) => match *var {
+            Bexp::Var(var) => {
+                let mut result = vec![var];
+                result.append(&mut parse_var_list(*vars)?);
+                Ok(result)
+            }
+            _ => Err(format!("expected variable")),
+        },
+        _ => Err(format!("expected variables")),
+    }
+}
+
+fn parse_exp_list(bexp: Bexp) -> Result<Vec<Exp>, String> {
+    match bexp {
+        Bexp::Binary(exp, Op::Item, exps) => {
+            let exp = parse_exp(*exp)?;
+            let mut result = vec![exp];
+            result.append(&mut parse_exp_list(*exps)?);
+            Ok(result)
+        }
+        exp => Ok(vec![parse_exp(exp)?]),
     }
 }
 
@@ -184,9 +203,8 @@ fn parse_op(input: &str) -> IResult<&str, Op> {
         value(Op::Union, tag("+")),
         value(Op::Difference, tag("-")),
         value(Op::Product, tag("*")),
-        value(Op::Table, tag(".")),
-        value(Op::Row, tag(",")),
-        value(Op::Cell, tag(":")),
+        value(Op::Table, tag(":")),
+        value(Op::Item, tag(",")),
         value(Op::Or, tag("|")),
         value(Op::And, tag("&")),
         value(Op::App, tag("")),
@@ -310,20 +328,15 @@ mod test {
         let program = Let(
             "Staff".to_string(),
             Box::new(Table(
-                Box::new(Row(
-                    Box::new(Row(
-                        Box::new(Cell("name".to_string(), Box::new(Str("Alice".to_string())))),
-                        Box::new(Cell("id".to_string(), Box::new(Int(1)))),
-                    )),
-                    Box::new(Cell("employed".to_string(), Box::new(Bool(true)))),
-                )),
-                Box::new(Row(
-                    Box::new(Row(
-                        Box::new(Cell("name".to_string(), Box::new(Str("Bob".to_string())))),
-                        Box::new(Cell("id".to_string(), Box::new(Int(2)))),
-                    )),
-                    Box::new(Cell("employed".to_string(), Box::new(Bool(false)))),
-                )),
+                vec!["name".to_string(), "id".to_string(), "employed".to_string()],
+                vec![
+                    Str("Alice".to_string()),
+                    Int(1),
+                    Bool(true),
+                    Str("Bob".to_string()),
+                    Int(2),
+                    Bool(false),
+                ],
             )),
             Box::new(Let(
                 "alice_or_bob_employed".to_string(),
@@ -368,8 +381,9 @@ mod test {
 my program */
 
 Staff =
-  name: 'Alice', id: 1, employed: true. -- Alice is employed
-  name: 'Bob', id: 2, employed: false;  -- Bob left the company
+  name, id, employed:
+  'Alice', 1, true,
+  'Bob', 2, false;
 
 alice_or_bob_employed = (
   alice = employed <- Staff ? name == 'Alice';
@@ -386,7 +400,7 @@ alice_or_bob_employed
         assert_eq!(
             parse(
                 r#"
-Staff=name:'Alice',id:1,employed:true.name:'Bob',id:2,employed:false;
+Staff=name,id,employed:'Alice',1,true,'Bob',2,false;
 alice_or_bob_employed=(alice=employed<-Staff?name=='Alice';bob=employed<-Staff?name=='Bob';alice|bob);
 alice_or_bob_employed
 "#

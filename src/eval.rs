@@ -22,18 +22,11 @@ fn eval_exp(exp: Exp, mut env: Env) -> Result<Exp, String> {
         Exp::Difference(_, _) => todo!(),
         Exp::Product(_, _) => todo!(),
         Exp::Table(l, r) => {
-            let l = eval_exp(*l, env.clone())?;
-            let r = eval_exp(*r, env)?;
-            Ok(Exp::Table(Box::new(l), Box::new(r)))
-        }
-        Exp::Row(l, r) => {
-            let l = eval_exp(*l, env.clone())?;
-            let r = eval_exp(*r, env)?;
-            Ok(Exp::Row(Box::new(l), Box::new(r)))
-        }
-        Exp::Cell(var, exp) => {
-            let exp = eval_exp(*exp, env)?;
-            Ok(Exp::Cell(var, Box::new(exp)))
+            let exps = r
+                .into_iter()
+                .map(|exp| eval_exp(exp, env.clone()))
+                .collect::<Result<Vec<Exp>, String>>()?;
+            Ok(Exp::Table(l, exps))
         }
         Exp::Or(l, r) => {
             let l = eval_exp(*l, env.clone())?;

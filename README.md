@@ -11,15 +11,13 @@ https://cs186berkeley.net/notes/note6/
 ```
 Let         var = exp; exp
 
-Select      var, ... <- exp
+Select      var,* <- exp
 Where       exp ? exp
 Union       exp + exp
 Difference  exp - exp
 Product     exp * exp
 
-Table       exp; exp
-Row         exp, exp
-Cell        var: exp
+Table       var,* : exp,*
 
 Or          exp | exp
 Equals      exp == exp
