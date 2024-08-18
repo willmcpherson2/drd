@@ -30,7 +30,19 @@ fn eval_exp(exp: Exp, mut env: Env) -> Result<Exp, String> {
             let exps = filter(&table_vars, exps, *cond, env)?;
             Ok(Table(table_vars, exps))
         }
-        Union(_, _) => todo!(),
+        Union(l, r) => {
+            let Table(vars, mut exps) = eval_exp(*l, env.clone())? else {
+                return Err(format!("expected table"));
+            };
+            let Table(r_vars, mut r_exps) = eval_exp(*r, env)? else {
+                return Err(format!("expected table"));
+            };
+            if vars != r_vars {
+                return Err(format!("expected tables with matching columns in union"));
+            }
+            exps.append(&mut r_exps);
+            Ok(Table(vars, exps))
+        }
         Difference(_, _) => todo!(),
         Product(_, _) => todo!(),
         Table(l, r) => {
@@ -188,6 +200,35 @@ mod test {
         assert_eq!(
             eval(parse("name, id : 'Alice', 1, 'Bob', 2 ? name == 'Foo'").unwrap()),
             Ok(Table(vec!["name".to_string(), "id".to_string()], vec![])),
+        );
+    }
+
+    #[test]
+    fn test_union() {
+        assert_eq!(
+            eval(parse("name, id : 'Alice', 1 + name, id : 'Bob', 2").unwrap()),
+            Ok(Table(
+                vec!["name".to_string(), "id".to_string()],
+                vec![
+                    Str("Alice".to_string()),
+                    Int(1),
+                    Str("Bob".to_string()),
+                    Int(2)
+                ]
+            )),
+        );
+
+        assert_eq!(
+            eval(parse("table = name, id : 'Alice', 1; table + table").unwrap()),
+            Ok(Table(
+                vec!["name".to_string(), "id".to_string()],
+                vec![
+                    Str("Alice".to_string()),
+                    Int(1),
+                    Str("Alice".to_string()),
+                    Int(1),
+                ]
+            )),
         );
     }
 }
