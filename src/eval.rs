@@ -23,7 +23,13 @@ fn eval_exp(exp: Exp, mut env: Env) -> Result<Exp, String> {
             let exps = select(&select_vars, &table_vars, exps);
             Ok(Table(select_vars, exps))
         }
-        Where(_, _) => todo!(),
+        Where(table, cond) => {
+            let Table(table_vars, exps) = eval_exp(*table, env.clone())? else {
+                return Err(format!("expected table"));
+            };
+            let exps = filter(&table_vars, exps, *cond, env)?;
+            Ok(Table(table_vars, exps))
+        }
         Union(_, _) => todo!(),
         Difference(_, _) => todo!(),
         Product(_, _) => todo!(),
@@ -95,6 +101,33 @@ fn select(keep: &[String], target: &[String], items: Vec<Exp>) -> Vec<Exp> {
         .collect()
 }
 
+fn filter(
+    vars: &[String],
+    exps: Vec<Exp>,
+    cond: Exp,
+    env: HashMap<String, Exp>,
+) -> Result<Vec<Exp>, String> {
+    exps.chunks(vars.len())
+        .try_fold(vec![], |mut acc: Vec<Exp>, exps: &[Exp]| {
+            let mut env = env.clone();
+            for (var, exp) in vars.iter().zip(exps) {
+                env.insert(var.clone(), exp.clone());
+            }
+
+            let Bool(keep) = eval_exp(cond.clone(), env)? else {
+                return Err(format!("expected boolean in where clause"));
+            };
+
+            if keep {
+                for exp in exps {
+                    acc.push(exp.clone());
+                }
+            }
+
+            Ok(acc)
+        })
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -118,6 +151,43 @@ mod test {
         assert_eq!(
             eval(parse("foo <- name, id : 'Alice', 1, 'Bob', 2").unwrap()),
             Ok(Table(vec!["foo".to_string()], vec![])),
+        );
+    }
+
+    #[test]
+    fn test_where() {
+        assert_eq!(
+            eval(parse("name, id : 'Alice', 1, 'Bob', 2 ? name == 'Alice'").unwrap()),
+            Ok(Table(
+                vec!["name".to_string(), "id".to_string()],
+                vec![Str("Alice".to_string()), Int(1)]
+            )),
+        );
+
+        assert_eq!(
+            eval(parse("name, id : 'Alice', 1, 'Bob', 2 ? id == 2").unwrap()),
+            Ok(Table(
+                vec!["name".to_string(), "id".to_string()],
+                vec![Str("Bob".to_string()), Int(2)]
+            )),
+        );
+
+        assert_eq!(
+            eval(parse("name, id : 'Alice', 1, 'Bob', 2 ? (id == 1) | (id == 2)").unwrap()),
+            Ok(Table(
+                vec!["name".to_string(), "id".to_string()],
+                vec![
+                    Str("Alice".to_string()),
+                    Int(1),
+                    Str("Bob".to_string()),
+                    Int(2)
+                ]
+            )),
+        );
+
+        assert_eq!(
+            eval(parse("name, id : 'Alice', 1, 'Bob', 2 ? name == 'Foo'").unwrap()),
+            Ok(Table(vec!["name".to_string(), "id".to_string()], vec![])),
         );
     }
 }
