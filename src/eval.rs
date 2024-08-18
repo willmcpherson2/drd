@@ -16,7 +16,13 @@ fn eval_exp(exp: Exp, mut env: Env) -> Result<Exp, String> {
             let body = eval_exp(*body, env)?;
             Ok(body)
         }
-        Exp::Select(_, _) => todo!(),
+        Exp::Select(select_vars, table) => {
+            let Exp::Table(table_vars, exps) = eval_exp(*table, env)? else {
+                return Err(format!("expected table"));
+            };
+            let exps = select(&select_vars, &table_vars, exps);
+            Ok(Exp::Table(select_vars, exps))
+        }
         Exp::Where(_, _) => todo!(),
         Exp::Union(_, _) => todo!(),
         Exp::Difference(_, _) => todo!(),
@@ -67,5 +73,52 @@ fn eval_exp(exp: Exp, mut env: Env) -> Result<Exp, String> {
             None => Err(format!("Variable `{}` not defined", var)),
         },
         exp => Ok(exp),
+    }
+}
+
+fn select(keep: &[String], target: &[String], items: Vec<Exp>) -> Vec<Exp> {
+    let target_indices = target
+        .iter()
+        .enumerate()
+        .map(|(i, s)| (s, i))
+        .collect::<HashMap<_, _>>();
+
+    let indices_to_keep = keep
+        .iter()
+        .filter_map(|k| target_indices.get(k))
+        .cloned()
+        .collect::<Vec<_>>();
+
+    items
+        .chunks(target.len())
+        .flat_map(|row| indices_to_keep.iter().filter_map(|&i| row.get(i).cloned()))
+        .collect()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::exp::Exp::*;
+    use crate::parse::*;
+
+    #[test]
+    fn test_select() {
+        assert_eq!(
+            eval(parse("name <- name, id : 'Alice', 1, 'Bob', 2").unwrap()),
+            Ok(Table(
+                vec!["name".to_string()],
+                vec![Str("Alice".to_string()), Str("Bob".to_string())]
+            )),
+        );
+
+        assert_eq!(
+            eval(parse("id <- name, id : 'Alice', 1, 'Bob', 2").unwrap()),
+            Ok(Table(vec!["id".to_string()], vec![Int(1), Int(2)])),
+        );
+
+        assert_eq!(
+            eval(parse("foo <- name, id : 'Alice', 1, 'Bob', 2").unwrap()),
+            Ok(Table(vec!["foo".to_string()], vec![])),
+        );
     }
 }
