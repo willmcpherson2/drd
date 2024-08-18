@@ -9,9 +9,9 @@ https://cs186berkeley.net/notes/note6/
 (Lowest to highest precedence)
 
 ```
-Let         var = exp exp
+Let         var = exp; exp
 
-Select      var, var <- exp
+Select      var, ... <- exp
 Where       exp ? exp
 Union       exp + exp
 Difference  exp - exp
@@ -24,7 +24,7 @@ Cell        var: exp
 Or          exp | exp
 Equals      exp == exp
 And         exp & exp
-Not         !exp
+Not         not exp
 
 Bool        true
 Int         -42
