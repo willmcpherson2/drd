@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::exp::*;
+use crate::exp::{Exp, Exp::*};
 
 type Env = HashMap<String, Exp>;
 
@@ -10,65 +10,65 @@ pub fn eval(exp: Exp) -> Result<Exp, String> {
 
 fn eval_exp(exp: Exp, mut env: Env) -> Result<Exp, String> {
     match exp {
-        Exp::Let(var, exp, body) => {
+        Let(var, exp, body) => {
             let exp = eval_exp(*exp, env.clone())?;
             env.insert(var, exp);
             let body = eval_exp(*body, env)?;
             Ok(body)
         }
-        Exp::Select(select_vars, table) => {
-            let Exp::Table(table_vars, exps) = eval_exp(*table, env)? else {
+        Select(select_vars, table) => {
+            let Table(table_vars, exps) = eval_exp(*table, env)? else {
                 return Err(format!("expected table"));
             };
             let exps = select(&select_vars, &table_vars, exps);
-            Ok(Exp::Table(select_vars, exps))
+            Ok(Table(select_vars, exps))
         }
-        Exp::Where(_, _) => todo!(),
-        Exp::Union(_, _) => todo!(),
-        Exp::Difference(_, _) => todo!(),
-        Exp::Product(_, _) => todo!(),
-        Exp::Table(l, r) => {
+        Where(_, _) => todo!(),
+        Union(_, _) => todo!(),
+        Difference(_, _) => todo!(),
+        Product(_, _) => todo!(),
+        Table(l, r) => {
             let exps = r
                 .into_iter()
                 .map(|exp| eval_exp(exp, env.clone()))
                 .collect::<Result<Vec<Exp>, String>>()?;
-            Ok(Exp::Table(l, exps))
+            Ok(Table(l, exps))
         }
-        Exp::Or(l, r) => {
+        Or(l, r) => {
             let l = eval_exp(*l, env.clone())?;
-            if let Exp::Bool(true) = l {
-                return Ok(Exp::Bool(true));
+            if let Bool(true) = l {
+                return Ok(Bool(true));
             }
             let r = eval_exp(*r, env)?;
-            if let Exp::Bool(true) = r {
-                return Ok(Exp::Bool(true));
+            if let Bool(true) = r {
+                return Ok(Bool(true));
             }
-            Ok(Exp::Bool(false))
+            Ok(Bool(false))
         }
-        Exp::Equals(l, r) => {
+        Equals(l, r) => {
             let l = eval_exp(*l, env.clone())?;
             let r = eval_exp(*r, env)?;
-            Ok(Exp::Bool(l == r))
+            Ok(Bool(l == r))
         }
-        Exp::And(l, r) => {
+        And(l, r) => {
             let l = eval_exp(*l, env.clone())?;
-            if let Exp::Bool(false) = l {
-                return Ok(Exp::Bool(false));
+            if let Bool(false) = l {
+                return Ok(Bool(false));
             }
             let r = eval_exp(*r, env)?;
-            if let Exp::Bool(false) = r {
-                return Ok(Exp::Bool(false));
+            if let Bool(false) = r {
+                return Ok(Bool(false));
             }
-            Ok(Exp::Bool(true))
+            Ok(Bool(true))
         }
-        Exp::Not(exp) => {
+        Not(exp) => {
             let exp = eval_exp(*exp, env)?;
             match exp {
-                Exp::Bool(bool) => Ok(Exp::Bool(!bool)),
+                Bool(bool) => Ok(Bool(!bool)),
                 _ => Err(format!("Expected boolean, found {:?}", exp)),
             }
         }
-        Exp::Var(var) => match env.get(&var) {
+        Var(var) => match env.get(&var) {
             Some(exp) => Ok(exp.clone()),
             None => Err(format!("Variable `{}` not defined", var)),
         },
@@ -98,7 +98,6 @@ fn select(keep: &[String], target: &[String], items: Vec<Exp>) -> Vec<Exp> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::exp::Exp::*;
     use crate::parse::*;
 
     #[test]
