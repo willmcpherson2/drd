@@ -44,7 +44,24 @@ fn eval_exp(exp: Exp, mut env: Env) -> Result<Exp, String> {
             Ok(Table(vars, exps))
         }
         Difference(_, _) => todo!(),
-        Product(_, _) => todo!(),
+        Product(l, r) => {
+            let Table(l_vars, l_exps) = eval_exp(*l, env.clone())? else {
+                return Err(format!("expected table"));
+            };
+            let Table(r_vars, r_exps) = eval_exp(*r, env)? else {
+                return Err(format!("expected table"));
+            };
+            let exps = l_exps
+                .chunks(l_vars.len())
+                .flat_map(|l_row| {
+                    r_exps
+                        .chunks(r_vars.len())
+                        .flat_map(move |r_row| [l_row, r_row].concat())
+                })
+                .collect::<Vec<_>>();
+            let vars = [l_vars, r_vars].concat();
+            Ok(Table(vars, exps))
+        }
         Table(l, r) => {
             let exps = r
                 .into_iter()
@@ -228,6 +245,60 @@ mod test {
                     Str("Alice".to_string()),
                     Int(1),
                 ]
+            )),
+        );
+    }
+
+    #[test]
+    fn test_product() {
+        assert_eq!(
+            eval(
+                parse(
+                    r#"
+Colors =
+  color, hex :
+  'Red', '#FF0000',
+  'Green', '#00FF00',
+  'Blue', '#0000FF';
+
+Sizes = size : 'Small', 'Medium', 'Large';
+
+Colors * Sizes
+"#
+                )
+                .unwrap()
+            ),
+            Ok(Table(
+                vec!["color".to_string(), "hex".to_string(), "size".to_string()],
+                vec![
+                    Str("Red".to_string()),
+                    Str("#FF0000".to_string()),
+                    Str("Small".to_string()),
+                    Str("Red".to_string()),
+                    Str("#FF0000".to_string()),
+                    Str("Medium".to_string()),
+                    Str("Red".to_string()),
+                    Str("#FF0000".to_string()),
+                    Str("Large".to_string()),
+                    Str("Green".to_string()),
+                    Str("#00FF00".to_string()),
+                    Str("Small".to_string()),
+                    Str("Green".to_string()),
+                    Str("#00FF00".to_string()),
+                    Str("Medium".to_string()),
+                    Str("Green".to_string()),
+                    Str("#00FF00".to_string()),
+                    Str("Large".to_string()),
+                    Str("Blue".to_string()),
+                    Str("#0000FF".to_string()),
+                    Str("Small".to_string()),
+                    Str("Blue".to_string()),
+                    Str("#0000FF".to_string()),
+                    Str("Medium".to_string()),
+                    Str("Blue".to_string()),
+                    Str("#0000FF".to_string()),
+                    Str("Large".to_string()),
+                ],
             )),
         );
     }
