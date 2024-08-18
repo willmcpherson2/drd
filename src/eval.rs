@@ -173,7 +173,7 @@ mod test {
         );
 
         assert_eq!(
-            eval(parse("name, id : 'Alice', 1, 'Bob', 2 ? (id == 1) | (id == 2)").unwrap()),
+            eval(parse("name, id : 'Alice', 1, 'Bob', 2 ? id == 1 | id == 2").unwrap()),
             Ok(Table(
                 vec!["name".to_string(), "id".to_string()],
                 vec![

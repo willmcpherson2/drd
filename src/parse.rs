@@ -58,8 +58,8 @@ impl Op {
             Op::Table => 8,
             Op::Item => 9,
             Op::Or => 10,
-            Op::Equals => 11,
-            Op::And => 12,
+            Op::And => 11,
+            Op::Equals => 12,
             Op::App => 13,
         }
     }
