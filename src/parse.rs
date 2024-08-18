@@ -261,6 +261,7 @@ fn multi_line_comment(input: &str) -> IResult<&str, ()> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::exp::Exp::*;
     use nom::{error::Error, Err};
 
     #[test]
@@ -317,6 +318,96 @@ mod test {
                 input: " hello",
                 code: nom::error::ErrorKind::TakeUntil
             }))
+        );
+    }
+
+    #[test]
+    fn test_program() {
+        let program = Let(
+            "Staff".to_string(),
+            Box::new(Table(
+                Box::new(Row(
+                    Box::new(Row(
+                        Box::new(Cell("name".to_string(), Box::new(Str("Alice".to_string())))),
+                        Box::new(Cell("id".to_string(), Box::new(Int(1)))),
+                    )),
+                    Box::new(Cell("employed".to_string(), Box::new(Bool(true)))),
+                )),
+                Box::new(Row(
+                    Box::new(Row(
+                        Box::new(Cell("name".to_string(), Box::new(Str("Bob".to_string())))),
+                        Box::new(Cell("id".to_string(), Box::new(Int(2)))),
+                    )),
+                    Box::new(Cell("employed".to_string(), Box::new(Bool(false)))),
+                )),
+            )),
+            Box::new(Let(
+                "alice_or_bob_employed".to_string(),
+                Box::new(Let(
+                    "alice".to_string(),
+                    Box::new(Select(
+                        vec!["employed".to_string()],
+                        Box::new(Where(
+                            Box::new(Var("Staff".to_string())),
+                            Box::new(Equals(
+                                Box::new(Var("name".to_string())),
+                                Box::new(Str("Alice".to_string())),
+                            )),
+                        )),
+                    )),
+                    Box::new(Let(
+                        "bob".to_string(),
+                        Box::new(Select(
+                            vec!["employed".to_string()],
+                            Box::new(Where(
+                                Box::new(Var("Staff".to_string())),
+                                Box::new(Equals(
+                                    Box::new(Var("name".to_string())),
+                                    Box::new(Str("Bob".to_string())),
+                                )),
+                            )),
+                        )),
+                        Box::new(Or(
+                            Box::new(Var("alice".to_string())),
+                            Box::new(Var("bob".to_string())),
+                        )),
+                    )),
+                )),
+                Box::new(Var("alice_or_bob_employed".to_string())),
+            )),
+        );
+
+        assert_eq!(
+            parse(
+                r#"
+/* welcome to
+my program */
+
+Staff =
+  name: 'Alice', id: 1, employed: true. -- Alice is employed
+  name: 'Bob', id: 2, employed: false;  -- Bob left the company
+
+alice_or_bob_employed = (
+  alice = employed <- Staff ? name == 'Alice';
+  bob = employed <- Staff ? name == 'Bob';
+  alice | bob
+);
+
+alice_or_bob_employed
+"#
+            ),
+            Ok(program.clone()),
+        );
+
+        assert_eq!(
+            parse(
+                r#"
+Staff=name:'Alice',id:1,employed:true.name:'Bob',id:2,employed:false;
+alice_or_bob_employed=(alice=employed<-Staff?name=='Alice';bob=employed<-Staff?name=='Bob';alice|bob);
+alice_or_bob_employed
+"#
+            ),
+            Ok(program),
         );
     }
 }
