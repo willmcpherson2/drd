@@ -1,4 +1,4 @@
-use crate::exp::*;
+use crate::exp::{Exp, Exp::*};
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag, take_until},
@@ -78,7 +78,7 @@ fn parse_exp(bexp: Bexp) -> Result<Exp, String> {
         Bexp::Binary(l, op, r) => match op {
             Op::In => match *l {
                 Bexp::Binary(var, Op::Let, exp) => match parse_exp(*var)? {
-                    Exp::Var(var) => Ok(Exp::Let(
+                    Var(var) => Ok(Let(
                         var,
                         Box::new(parse_exp(*exp)?),
                         Box::new(parse_exp(*r)?),
@@ -89,52 +89,37 @@ fn parse_exp(bexp: Bexp) -> Result<Exp, String> {
             },
             Op::Let => Err(format!("let not allowed here")),
             Op::Select => match parse_exp(*l)? {
-                Exp::Var(l) => Ok(Exp::Select(vec![l], Box::new(parse_exp(*r)?))),
+                Var(l) => Ok(Select(vec![l], Box::new(parse_exp(*r)?))),
                 exp => Err(format!("expected var, got {:?}", exp)),
             },
-            Op::Where => Ok(Exp::Where(
+            Op::Where => Ok(Where(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
+            Op::Union => Ok(Union(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
+            Op::Difference => Ok(Difference(
                 Box::new(parse_exp(*l)?),
                 Box::new(parse_exp(*r)?),
             )),
-            Op::Union => Ok(Exp::Union(
-                Box::new(parse_exp(*l)?),
-                Box::new(parse_exp(*r)?),
-            )),
-            Op::Difference => Ok(Exp::Difference(
-                Box::new(parse_exp(*l)?),
-                Box::new(parse_exp(*r)?),
-            )),
-            Op::Product => Ok(Exp::Product(
-                Box::new(parse_exp(*l)?),
-                Box::new(parse_exp(*r)?),
-            )),
-            Op::Table => Ok(Exp::Table(
-                Box::new(parse_exp(*l)?),
-                Box::new(parse_exp(*r)?),
-            )),
-            Op::Row => Ok(Exp::Row(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
+            Op::Product => Ok(Product(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
+            Op::Table => Ok(Table(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
+            Op::Row => Ok(Row(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
             Op::Cell => match parse_exp(*l)? {
-                Exp::Var(l) => Ok(Exp::Cell(l, Box::new(parse_exp(*r)?))),
+                Var(l) => Ok(Cell(l, Box::new(parse_exp(*r)?))),
                 exp => Err(format!("expected var, got {:?}", exp)),
             },
-            Op::Or => Ok(Exp::Or(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
-            Op::Equals => Ok(Exp::Equals(
-                Box::new(parse_exp(*l)?),
-                Box::new(parse_exp(*r)?),
-            )),
-            Op::And => Ok(Exp::And(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
+            Op::Or => Ok(Or(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
+            Op::Equals => Ok(Equals(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
+            Op::And => Ok(And(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
             Op::App => match parse_exp(*l)? {
-                Exp::Var(var) => match var.as_str() {
-                    "not" => Ok(Exp::Not(Box::new(parse_exp(*r)?))),
+                Var(var) => match var.as_str() {
+                    "not" => Ok(Not(Box::new(parse_exp(*r)?))),
                     s => Err(format!("unknown function: {}", s)),
                 },
                 exp => Err(format!("cannot apply {:?}", exp)),
             },
         },
         Bexp::Parens(bexp) => parse_exp(*bexp),
-        Bexp::Bool(bool) => Ok(Exp::Bool(bool)),
-        Bexp::Int(int) => Ok(Exp::Int(int)),
-        Bexp::Str(str) => Ok(Exp::Str(str)),
+        Bexp::Bool(bool) => Ok(Bool(bool)),
+        Bexp::Int(int) => Ok(Int(int)),
+        Bexp::Str(str) => Ok(Str(str)),
         Bexp::Var(var) => Ok(Exp::Var(var)),
     }
 }
@@ -261,7 +246,6 @@ fn multi_line_comment(input: &str) -> IResult<&str, ()> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::exp::Exp::*;
     use nom::{error::Error, Err};
 
     #[test]
