@@ -20,8 +20,8 @@ Product     exp * exp
 Table       var,* : exp,*
 
 Or          exp | exp
-Equals      exp == exp
 And         exp & exp
+Equals      exp == exp
 Not         not exp
 
 Bool        true
