@@ -43,7 +43,26 @@ fn eval_exp(exp: Exp, mut env: Env) -> Result<Exp, String> {
             exps.append(&mut r_exps);
             Ok(Table(vars, exps))
         }
-        Difference(_, _) => todo!(),
+        Difference(l, r) => {
+            let Table(l_vars, l_exps) = eval_exp(*l, env.clone())? else {
+                return Err(format!("expected table"));
+            };
+            let Table(r_vars, r_exps) = eval_exp(*r, env)? else {
+                return Err(format!("expected table"));
+            };
+            if l_vars != r_vars {
+                return Err(format!(
+                    "expected tables with matching columns in difference"
+                ));
+            }
+            let vars = l_vars;
+            let exps = l_exps
+                .chunks(vars.len())
+                .filter(|&l_exp| r_exps.chunks(vars.len()).all(|r_exp| l_exp != r_exp))
+                .flat_map(|chunk| chunk.to_vec())
+                .collect();
+            Ok(Table(vars, exps))
+        }
         Product(l, r) => {
             let Table(l_vars, l_exps) = eval_exp(*l, env.clone())? else {
                 return Err(format!("expected table"));
@@ -300,6 +319,57 @@ Colors * Sizes
                     Str("Large".to_string()),
                 ],
             )),
+        );
+    }
+
+    #[test]
+    fn test_difference() {
+        assert_eq!(
+            eval(
+                parse(
+                    r#"
+Left =
+  a, b :
+  1, 2,
+  3, 4;
+
+Right =
+  a, b :
+  1, 2;
+
+Left - Right
+"#
+                )
+                .unwrap()
+            ),
+            Ok(Table(
+                vec!["a".to_string(), "b".to_string()],
+                vec![Int(3), Int(4)],
+            ))
+        );
+
+        assert_eq!(
+            eval(
+                parse(
+                    r#"
+Left =
+  a, b :
+  1, 2,
+  3, 4;
+
+Right =
+  a, b :
+  1, 'something else';
+
+Left - Right
+"#
+                )
+                .unwrap()
+            ),
+            Ok(Table(
+                vec!["a".to_string(), "b".to_string()],
+                vec![Int(1), Int(2), Int(3), Int(4)],
+            ))
         );
     }
 }
