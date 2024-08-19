@@ -205,8 +205,8 @@ fn parse_op(input: &str) -> IResult<&str, Op> {
         value(Op::Product, tag("*")),
         value(Op::Table, tag(":")),
         value(Op::Item, tag(",")),
-        value(Op::Or, tag("|")),
-        value(Op::And, tag("&")),
+        value(Op::Or, tag("||")),
+        value(Op::And, tag("&&")),
         value(Op::App, tag("")),
     ))(input)
 }
@@ -388,7 +388,7 @@ Staff =
 alice_or_bob_employed = (
   alice = employed <- Staff ? name == 'Alice';
   bob = employed <- Staff ? name == 'Bob';
-  alice | bob
+  alice || bob
 );
 
 alice_or_bob_employed
@@ -401,7 +401,7 @@ alice_or_bob_employed
             parse(
                 r#"
 Staff=name,id,employed:'Alice',1,true,'Bob',2,false;
-alice_or_bob_employed=(alice=employed<-Staff?name=='Alice';bob=employed<-Staff?name=='Bob';alice|bob);
+alice_or_bob_employed=(alice=employed<-Staff?name=='Alice';bob=employed<-Staff?name=='Bob';alice||bob);
 alice_or_bob_employed
 "#
             ),
