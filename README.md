@@ -36,60 +36,38 @@ Var         x
 
 SQL: `SELECT`
 
-Example: `SELECT column FROM table;`
-
 ```
-column <- table
+columns <- table
 ```
 
 ### Selection (σ)
 
 SQL: `WHERE`
 
-Example: `SELECT * FROM table WHERE condition;`
-
 ```
-* <- table ? condition
-```
-
-### Cartesian product (×)
-
-SQL: `A, B` or `CROSS JOIN`
-
-Example: `SELECT * FROM table1, table2;`
-
-```
-* <- table1 * table2
+table ? condition
 ```
 
 ### Union (∪)
 
 SQL: `UNION` 
 
-Example: `SELECT * FROM table1 UNION SELECT * FROM table2;`
-
 ```
-(* <- table1) + (* <- table2)
+table1 + table2
 ```
 
 ### Set difference (-)
 
-SQL: `EXCEPT` or `MINUS`
-
-Example: `SELECT * FROM table1 EXCEPT SELECT * FROM table2;`
+SQL: `MINUS` or `EXCEPT`
 
 ```
-(* <- table1) - (* <- table2)
+table1 - table2
 ```
 
-### Rename (ρ)
+### Cartesian product (×)
 
-(Not added yet)
-
-SQL: `AS`
-
-Example: `SELECT column AS new_name FROM table;`
+SQL: `CROSS JOIN` or `A, B`
 
 ```
-(column := new_name) <- table
+table1 * table2
 ```
