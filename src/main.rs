@@ -1,11 +1,7 @@
 use clap::Parser;
 use std::fs;
 
-use crate::{eval::eval, parse::parse};
-
-mod eval;
-mod exp;
-mod parse;
+use drd::{eval::eval, parse::parse};
 
 /// The Drd programming language
 #[derive(Parser)]
