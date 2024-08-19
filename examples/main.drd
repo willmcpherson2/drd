@@ -1,44 +1,3 @@
-# Dumb Relational Database (DRD)
-
-https://en.wikipedia.org/wiki/Relational_algebra#Introduction
-
-https://cs186berkeley.net/notes/note6/
-
-## Syntax
-
-(Lowest to highest precedence)
-
-```
-Let         var = exp; exp
-
-Select      var,* <- exp
-Where       exp ? exp
-Union       exp + exp
-Difference  exp - exp
-Product     exp * exp
-
-Table       var,* : exp,*
-
-Or          exp || exp
-And         exp && exp
-Equals      exp == exp
-Not         not exp
-
-Boolean     true
-Integer     -42
-String      'hi'
-Variable    x
-```
-
-## Example
-
-Run this with:
-
-```
-cargo run -- examples/main.drd
-```
-
-```
 --------------------------------------------------------------------------------
 -- Let
 -- variable = expression ; body
@@ -162,4 +121,3 @@ Results =
 main = Results;
 
 main -- the body of our big let expression!
-```
