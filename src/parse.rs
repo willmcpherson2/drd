@@ -39,11 +39,7 @@ enum Op {
 
 impl Op {
     fn right_associative(&self) -> bool {
-        match *self {
-            Op::In => true,
-            Op::Item => true,
-            _ => false,
-        }
+        matches!(*self, Op::In | Op::Item)
     }
 
     fn prec(&self) -> u32 {
@@ -86,7 +82,7 @@ fn parse_exp(bexp: Bexp) -> Result<Exp, String> {
                 },
                 bexp => Err(format!("expected let, got {:?}", bexp)),
             },
-            Op::Let => Err(format!("let not allowed here")),
+            Op::Let => Err("let not allowed here".to_string()),
             Op::Select => Ok(Select(parse_var_list(*l)?, Box::new(parse_exp(*r)?))),
             Op::Where => Ok(Where(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
             Op::Union => Ok(Union(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
@@ -96,7 +92,7 @@ fn parse_exp(bexp: Bexp) -> Result<Exp, String> {
             )),
             Op::Product => Ok(Product(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
             Op::Table => Ok(Table(parse_var_list(*l)?, parse_exp_list(*r)?)),
-            Op::Item => Err(format!("item not allowed here")),
+            Op::Item => Err("item not allowed here".to_string()),
             Op::Or => Ok(Or(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
             Op::Equals => Ok(Equals(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
             Op::And => Ok(And(Box::new(parse_exp(*l)?), Box::new(parse_exp(*r)?))),
@@ -125,9 +121,9 @@ fn parse_var_list(bexp: Bexp) -> Result<Vec<String>, String> {
                 result.append(&mut parse_var_list(*vars)?);
                 Ok(result)
             }
-            _ => Err(format!("expected variable")),
+            _ => Err("expected variable".to_string()),
         },
-        _ => Err(format!("expected variables")),
+        _ => Err("expected variables".to_string()),
     }
 }
 

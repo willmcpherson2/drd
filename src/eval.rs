@@ -18,42 +18,40 @@ fn eval_exp(exp: Exp, mut env: Env) -> Result<Exp, String> {
         }
         Select(select_vars, table) => {
             let Table(table_vars, exps) = eval_exp(*table, env)? else {
-                return Err(format!("expected table"));
+                return Err("expected table".to_string());
             };
             let exps = select(&select_vars, &table_vars, exps);
             Ok(Table(select_vars, exps))
         }
         Where(table, cond) => {
             let Table(table_vars, exps) = eval_exp(*table, env.clone())? else {
-                return Err(format!("expected table"));
+                return Err("expected table".to_string());
             };
             let exps = filter(&table_vars, exps, *cond, env)?;
             Ok(Table(table_vars, exps))
         }
         Union(l, r) => {
             let Table(vars, mut exps) = eval_exp(*l, env.clone())? else {
-                return Err(format!("expected table"));
+                return Err("expected table".to_string());
             };
             let Table(r_vars, mut r_exps) = eval_exp(*r, env)? else {
-                return Err(format!("expected table"));
+                return Err("expected table".to_string());
             };
             if vars != r_vars {
-                return Err(format!("expected tables with matching columns in union"));
+                return Err("expected tables with matching columns in union".to_string());
             }
             exps.append(&mut r_exps);
             Ok(Table(vars, exps))
         }
         Difference(l, r) => {
             let Table(l_vars, l_exps) = eval_exp(*l, env.clone())? else {
-                return Err(format!("expected table"));
+                return Err("expected table".to_string());
             };
             let Table(r_vars, r_exps) = eval_exp(*r, env)? else {
-                return Err(format!("expected table"));
+                return Err("expected table".to_string());
             };
             if l_vars != r_vars {
-                return Err(format!(
-                    "expected tables with matching columns in difference"
-                ));
+                return Err("expected tables with matching columns in difference".to_string());
             }
             let vars = l_vars;
             let exps = l_exps
@@ -65,10 +63,10 @@ fn eval_exp(exp: Exp, mut env: Env) -> Result<Exp, String> {
         }
         Product(l, r) => {
             let Table(l_vars, l_exps) = eval_exp(*l, env.clone())? else {
-                return Err(format!("expected table"));
+                return Err("expected table".to_string());
             };
             let Table(r_vars, r_exps) = eval_exp(*r, env)? else {
-                return Err(format!("expected table"));
+                return Err("expected table".to_string());
             };
             let exps = l_exps
                 .chunks(l_vars.len())
@@ -163,7 +161,7 @@ fn filter(
             }
 
             let Bool(keep) = eval_exp(cond.clone(), env)? else {
-                return Err(format!("expected boolean in where clause"));
+                return Err("expected boolean in where clause".to_string());
             };
 
             if keep {
