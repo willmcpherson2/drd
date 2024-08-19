@@ -41,7 +41,7 @@ cargo run -- examples/main.drd
 ```
 --------------------------------------------------------------------------------
 -- Let
--- variable = expression ; body
+-- Syntax: variable = expression ; body
 --------------------------------------------------------------------------------
 
 thing = (x = true; not true); -- false
