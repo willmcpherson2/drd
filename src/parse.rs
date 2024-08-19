@@ -1,7 +1,7 @@
 use crate::exp::{Exp, Exp::*};
 use nom::{
     branch::alt,
-    bytes::complete::{is_not, tag, take_until},
+    bytes::complete::{is_not, tag, take_until, take_while},
     character::complete::{alpha1, alphanumeric1, char, digit1, multispace1},
     combinator::{all_consuming, map, map_res, opt, recognize, value},
     error::Error,
@@ -254,7 +254,7 @@ fn whitespace(input: &str) -> IResult<&str, ()> {
 }
 
 fn line_comment(input: &str) -> IResult<&str, ()> {
-    value((), pair(tag("--"), is_not("\n")))(input)
+    value((), pair(tag("--"), take_while(|c| c != '\n')))(input)
 }
 
 fn multi_line_comment(input: &str) -> IResult<&str, ()> {

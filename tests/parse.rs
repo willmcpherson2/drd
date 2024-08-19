@@ -26,6 +26,15 @@ fn test_var() {
 }
 
 #[test]
+fn test_comment() {
+    assert_eq!(parse("1 -- hello"), Ok(Int(1)));
+    assert_eq!(parse("1 --\n"), Ok(Int(1)));
+    assert_eq!(parse("1 --"), Ok(Int(1)));
+    assert_eq!(parse("not /* hello */ true"), Ok(Not(Box::new(Bool(true)))));
+    assert_eq!(parse("/**/1/**/"), Ok(Int(1)));
+}
+
+#[test]
 fn test_program() {
     let program = Let(
         "Staff".to_string(),
