@@ -16,6 +16,7 @@ pub enum Bexp {
     Parens(Box<Bexp>),
     Bool(bool),
     Int(i64),
+    Nil,
     Str(String),
     Var(String),
 }
@@ -127,6 +128,7 @@ fn parse_exp(bexp: Bexp) -> Result<Exp, String> {
         Bexp::Parens(bexp) => parse_exp(*bexp),
         Bexp::Bool(bool) => Ok(Bool(bool)),
         Bexp::Int(int) => Ok(Int(int)),
+        Bexp::Nil => Ok(Table(vec![], vec![])),
         Bexp::Str(str) => Ok(Str(str)),
         Bexp::Var(var) => Ok(Exp::Var(var)),
     }
@@ -134,6 +136,7 @@ fn parse_exp(bexp: Bexp) -> Result<Exp, String> {
 
 fn parse_var_list(bexp: Bexp) -> Result<Vec<String>, String> {
     match bexp {
+        Bexp::Nil => Ok(vec![]),
         Bexp::Var(var) => Ok(vec![var]),
         Bexp::Binary(var, Op::Item, vars) => match *var {
             Bexp::Var(var) => {
@@ -149,6 +152,7 @@ fn parse_var_list(bexp: Bexp) -> Result<Vec<String>, String> {
 
 fn parse_exp_list(bexp: Bexp) -> Result<Vec<Exp>, String> {
     match bexp {
+        Bexp::Nil => Ok(vec![]),
         Bexp::Binary(exp, Op::Item, exps) => {
             let exp = parse_exp(*exp)?;
             let mut result = vec![exp];
@@ -171,7 +175,14 @@ fn parse_bexp(input: &str) -> IResult<&str, Bexp> {
 }
 
 fn parse_atom(input: &str) -> IResult<&str, Bexp> {
-    alt((parse_parens, parse_bool, parse_int, parse_str, parse_var))(input)
+    alt((
+        parse_parens,
+        parse_bool,
+        parse_int,
+        parse_nil,
+        parse_str,
+        parse_var,
+    ))(input)
 }
 
 fn parse_parens(input: &str) -> IResult<&str, Bexp> {
@@ -191,6 +202,10 @@ fn parse_int(input: &str) -> IResult<&str, Bexp> {
     map_res(recognize(pair(opt(tag("-")), digit1)), |s: &str| {
         s.parse().map(Bexp::Int)
     })(input)
+}
+
+fn parse_nil(input: &str) -> IResult<&str, Bexp> {
+    value(Bexp::Nil, tag("nil"))(input)
 }
 
 fn parse_str(input: &str) -> IResult<&str, Bexp> {

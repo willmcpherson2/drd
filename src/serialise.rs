@@ -43,11 +43,17 @@ fn serialise_exp(exp: Exp) -> Bexp {
             Op::Product,
             Box::new(with_parens(*r, Op::Product, Side::Right)),
         ),
-        Table(vars, exps) => Bexp::Binary(
-            Box::new(serialise_var_list(vars)),
-            Op::Table,
-            Box::new(serialise_exp_list(exps)),
-        ),
+        Table(vars, exps) => {
+            if vars.is_empty() && exps.is_empty() {
+                Bexp::Nil
+            } else {
+                Bexp::Binary(
+                    Box::new(serialise_var_list(vars)),
+                    Op::Table,
+                    Box::new(serialise_exp_list(exps)),
+                )
+            }
+        }
         Or(l, r) => Bexp::Binary(
             Box::new(with_parens(*l, Op::Or, Side::Left)),
             Op::Or,
@@ -75,20 +81,26 @@ fn serialise_exp(exp: Exp) -> Bexp {
     }
 }
 
-// TODO: vars can be empty
 fn serialise_var_list(mut vars: Vec<String>) -> Bexp {
-    let first = Bexp::Var(vars.remove(0));
-    vars.into_iter().fold(first, |acc, var| {
-        Bexp::Binary(Box::new(acc), Op::Item, Box::new(Bexp::Var(var)))
-    })
+    if vars.is_empty() {
+        Bexp::Nil
+    } else {
+        let first = Bexp::Var(vars.remove(0));
+        vars.into_iter().fold(first, |acc, var| {
+            Bexp::Binary(Box::new(acc), Op::Item, Box::new(Bexp::Var(var)))
+        })
+    }
 }
 
-// TODO: exps can be empty
 fn serialise_exp_list(mut exps: Vec<Exp>) -> Bexp {
-    let first = serialise_exp(exps.remove(0));
-    exps.into_iter().fold(first, |acc, exp| {
-        Bexp::Binary(Box::new(acc), Op::Item, Box::new(serialise_exp(exp)))
-    })
+    if exps.is_empty() {
+        Bexp::Nil
+    } else {
+        let first = serialise_exp(exps.remove(0));
+        exps.into_iter().fold(first, |acc, exp| {
+            Bexp::Binary(Box::new(acc), Op::Item, Box::new(serialise_exp(exp)))
+        })
+    }
 }
 
 fn with_parens(exp: Exp, parent: Op, side: Side) -> Bexp {
@@ -116,6 +128,7 @@ fn serialise_bexp(exp: Bexp) -> String {
         Bexp::Parens(bexp) => format!("({})", serialise_bexp(*bexp),),
         Bexp::Bool(bool) => bool.to_string(),
         Bexp::Int(int) => int.to_string(),
+        Bexp::Nil => "nil".to_string(),
         Bexp::Str(str) => format!("'{}'", str),
         Bexp::Var(var) => var,
     }

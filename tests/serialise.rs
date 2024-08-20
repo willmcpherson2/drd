@@ -29,4 +29,8 @@ fn test_serialise() {
     run!("a * b * c", "a*b*c");
     run!("(a * b) * c", "a*b*c");
     run!("a * (b * c)", "a*(b*c)");
+
+    run!("nil", "nil");
+    run!("nil : nil", "nil");
+    run!("nil <- a : 1", "nil<-a:1");
 }
