@@ -11,7 +11,7 @@ use nom::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-enum Bexp {
+pub enum Bexp {
     Binary(Box<Bexp>, Op, Box<Bexp>),
     Parens(Box<Bexp>),
     Bool(bool),
@@ -21,7 +21,7 @@ enum Bexp {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-enum Op {
+pub enum Op {
     In,
     Let,
     Select,
@@ -37,12 +37,32 @@ enum Op {
     App,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum Side {
+    Left,
+    Right,
+}
+
 impl Op {
-    fn right_associative(&self) -> bool {
-        matches!(*self, Op::In | Op::Item)
+    pub fn assoc(&self) -> Side {
+        match *self {
+            Op::In => Side::Right,
+            Op::Let => Side::Left,
+            Op::Select => Side::Left,
+            Op::Where => Side::Left,
+            Op::Union => Side::Left,
+            Op::Difference => Side::Left,
+            Op::Product => Side::Left,
+            Op::Table => Side::Left,
+            Op::Item => Side::Right,
+            Op::Or => Side::Left,
+            Op::And => Side::Left,
+            Op::Equals => Side::Left,
+            Op::App => Side::Left,
+        }
     }
 
-    fn prec(&self) -> u32 {
+    pub fn prec(&self) -> u32 {
         match *self {
             Op::In => 1,
             Op::Let => 2,
@@ -225,7 +245,7 @@ fn re_associate(exp: Bexp) -> Bexp {
         return Bexp::Binary(Box::new(left), r, Box::new(c));
     };
 
-    if r.prec() > l.prec() || r.prec() == l.prec() && r.right_associative() {
+    if r.prec() > l.prec() || r.prec() == l.prec() && r.assoc() == Side::Right {
         // a l (b r c)
         let left = a;
         let right = Bexp::Binary(b, r, Box::new(c));

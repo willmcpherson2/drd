@@ -1,7 +1,7 @@
 use clap::Parser;
 use std::fs;
 
-use drd::{eval::eval, parse::parse};
+use drd::{eval::eval, parse::parse, serialise::serialise};
 
 /// The Drd programming language
 #[derive(Parser)]
@@ -50,5 +50,5 @@ fn main() {
         }
     };
 
-    println!("{:#?}", program);
+    println!("{}", serialise(program));
 }
