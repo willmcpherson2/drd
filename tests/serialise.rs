@@ -1,31 +1,32 @@
 use drd::{parse::parse, serialise::serialise};
 
+macro_rules! run {
+    ($input:expr, $output:expr) => {{
+        let parsed = parse($input).unwrap();
+        let serialised = serialise(parsed.clone());
+        assert_eq!(serialised, $output);
+        let re_parsed = parse(&serialised).unwrap();
+        assert_eq!(parsed, re_parsed);
+    }};
+}
+
 #[test]
 fn test_serialise() {
-    assert_eq!(serialise(parse("1").unwrap()), "1");
+    run!("1", "1");
 
-    assert_eq!(serialise(parse("(((1)))").unwrap()), "1");
+    run!("(((1)))", "1");
 
-    assert_eq!(serialise(parse("not true").unwrap()), "not true");
+    run!("not true", "not true");
 
-    assert_eq!(serialise(parse("1 * 2 + 3 * 4").unwrap()), "1*2+3*4");
-    assert_eq!(serialise(parse("1 * (2 + 3) * 4").unwrap()), "1*(2+3)*4");
+    run!("1 * 2 + 3 * 4", "1*2+3*4");
+    run!("1 * (2 + 3) * 4", "1*(2+3)*4");
 
-    assert_eq!(
-        serialise(parse("a, b, c : d, e, f").unwrap()),
-        "a,b,c:d,e,f"
-    );
+    run!("a, b, c : d, e, f", "a,b,c:d,e,f");
 
-    assert_eq!(
-        serialise(parse("a = 1; b = 2; c = 3; a + b - c").unwrap()),
-        "a=1;b=2;c=3;a+b-c"
-    );
-    assert_eq!(
-        serialise(parse("a = (b = c; d); e").unwrap()),
-        "a=(b=c;d);e"
-    );
+    run!("a = 1; b = 2; c = 3; a + b - c", "a=1;b=2;c=3;a+b-c");
+    run!("a = (b = c; d); e", "a=(b=c;d);e");
 
-    assert_eq!(serialise(parse("a * b * c").unwrap()), "a*b*c");
-    assert_eq!(serialise(parse("(a * b) * c").unwrap()), "a*b*c");
-    assert_eq!(serialise(parse("a * (b * c)").unwrap()), "a*(b*c)");
+    run!("a * b * c", "a*b*c");
+    run!("(a * b) * c", "a*b*c");
+    run!("a * (b * c)", "a*(b*c)");
 }
