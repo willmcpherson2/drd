@@ -1,23 +1,30 @@
 use clap::Parser;
 use std::fs;
 
-use drd::{eval::eval, parse::parse, serialise::serialise};
+use drd::{eval::eval, parse::parse, serialise::serialise, serve::serve};
+
+const EVAL: &[&str] = &["file", "eval"];
+const SERVE: &[&str] = &["port", "timeout"];
 
 /// The Drd programming language
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Input file to process
-    #[arg(conflicts_with_all = ["eval", "port"])]
+    #[arg(conflicts_with = "eval", conflicts_with_all = SERVE)]
     file: Option<String>,
 
     /// Evaluate a string instead of a file
-    #[arg(conflicts_with_all = ["file", "port"], short, long, value_name = "STRING")]
+    #[arg(conflicts_with = "file", conflicts_with_all = SERVE, short, long, value_name = "STRING")]
     eval: Option<String>,
 
     /// Start the database on a port
-    #[arg(conflicts_with_all = ["file", "eval"], short, long, value_name = "PORT", default_value = "2345")]
-    port: Option<u16>,
+    #[arg(conflicts_with_all = EVAL, short, long, value_name = "PORT", default_value = "2345")]
+    port: u16,
+
+    /// Timeout for connections in milliseconds
+    #[arg(conflicts_with_all = EVAL, short, long, value_name = "TIMEOUT", default_value = "5000")]
+    timeout: u64,
 }
 
 fn main() {
@@ -30,8 +37,14 @@ fn main() {
         }
     } else if let Some(text) = cli.eval {
         read_eval_print(&text);
-    } else if let Some(port) = cli.port {
-        println!("Starting on port: {port}");
+    } else {
+        let port = cli.port;
+        let timeout = cli.timeout;
+        println!("Starting server");
+        println!("http://localhost:{port}");
+        if let Err(e) = serve(port, timeout) {
+            eprintln!("Error starting server: {}", e)
+        }
     }
 }
 
