@@ -1,47 +1,54 @@
 use drd::{eval::eval, exp::Exp::*, parse::parse};
 
+macro_rules! run {
+    ($input:expr, $output:expr) => {{
+        let (exp, _) = eval(parse($input).unwrap()).unwrap();
+        assert_eq!(exp, $output);
+    }};
+}
+
 #[test]
 fn test_select() {
-    assert_eq!(
-        eval(parse("name <- name, id : 'Alice', 1, 'Bob', 2").unwrap()),
-        Ok(Table(
+    run!(
+        "name <- name, id : 'Alice', 1, 'Bob', 2",
+        Table(
             vec!["name".to_string()],
             vec![Str("Alice".to_string()), Str("Bob".to_string())]
-        )),
+        )
     );
 
-    assert_eq!(
-        eval(parse("id <- name, id : 'Alice', 1, 'Bob', 2").unwrap()),
-        Ok(Table(vec!["id".to_string()], vec![Int(1), Int(2)])),
+    run!(
+        "id <- name, id : 'Alice', 1, 'Bob', 2",
+        Table(vec!["id".to_string()], vec![Int(1), Int(2)])
     );
 
-    assert_eq!(
-        eval(parse("foo <- name, id : 'Alice', 1, 'Bob', 2").unwrap()),
-        Ok(Table(vec!["foo".to_string()], vec![])),
+    run!(
+        "foo <- name, id : 'Alice', 1, 'Bob', 2",
+        Table(vec!["foo".to_string()], vec![])
     );
 }
 
 #[test]
 fn test_where() {
-    assert_eq!(
-        eval(parse("name, id : 'Alice', 1, 'Bob', 2 ? name == 'Alice'").unwrap()),
-        Ok(Table(
+    run!(
+        "name, id : 'Alice', 1, 'Bob', 2 ? name == 'Alice'",
+        Table(
             vec!["name".to_string(), "id".to_string()],
             vec![Str("Alice".to_string()), Int(1)]
-        )),
+        )
     );
 
-    assert_eq!(
-        eval(parse("name, id : 'Alice', 1, 'Bob', 2 ? id == 2").unwrap()),
-        Ok(Table(
+    run!(
+        "name, id : 'Alice', 1, 'Bob', 2 ? id == 2",
+        Table(
             vec!["name".to_string(), "id".to_string()],
             vec![Str("Bob".to_string()), Int(2)]
-        )),
+        )
     );
 
-    assert_eq!(
-        eval(parse("name, id : 'Alice', 1, 'Bob', 2 ? id == 1 || id == 2").unwrap()),
-        Ok(Table(
+    run!(
+        "name, id : 'Alice', 1, 'Bob', 2 ? id == 1 || id == 2",
+        Table(
             vec!["name".to_string(), "id".to_string()],
             vec![
                 Str("Alice".to_string()),
@@ -49,20 +56,20 @@ fn test_where() {
                 Str("Bob".to_string()),
                 Int(2)
             ]
-        )),
+        )
     );
 
-    assert_eq!(
-        eval(parse("name, id : 'Alice', 1, 'Bob', 2 ? name == 'Foo'").unwrap()),
-        Ok(Table(vec!["name".to_string(), "id".to_string()], vec![])),
+    run!(
+        "name, id : 'Alice', 1, 'Bob', 2 ? name == 'Foo'",
+        Table(vec!["name".to_string(), "id".to_string()], vec![])
     );
 }
 
 #[test]
 fn test_union() {
-    assert_eq!(
-        eval(parse("name, id : 'Alice', 1 + name, id : 'Bob', 2").unwrap()),
-        Ok(Table(
+    run!(
+        "name, id : 'Alice', 1 + name, id : 'Bob', 2",
+        Table(
             vec!["name".to_string(), "id".to_string()],
             vec![
                 Str("Alice".to_string()),
@@ -70,12 +77,12 @@ fn test_union() {
                 Str("Bob".to_string()),
                 Int(2)
             ]
-        )),
+        )
     );
 
-    assert_eq!(
-        eval(parse("table = name, id : 'Alice', 1; table + table").unwrap()),
-        Ok(Table(
+    run!(
+        "table = name, id : 'Alice', 1; table + table",
+        Table(
             vec!["name".to_string(), "id".to_string()],
             vec![
                 Str("Alice".to_string()),
@@ -83,16 +90,14 @@ fn test_union() {
                 Str("Alice".to_string()),
                 Int(1),
             ]
-        )),
+        )
     );
 }
 
 #[test]
 fn test_product() {
-    assert_eq!(
-        eval(
-            parse(
-                r#"
+    run!(
+        r#"
 Colors =
   color, hex :
   'Red', '#FF0000',
@@ -102,11 +107,8 @@ Colors =
 Sizes = size : 'Small', 'Medium', 'Large';
 
 Colors * Sizes
-"#
-            )
-            .unwrap()
-        ),
-        Ok(Table(
+"#,
+        Table(
             vec!["color".to_string(), "hex".to_string(), "size".to_string()],
             vec![
                 Str("Red".to_string()),
@@ -137,16 +139,14 @@ Colors * Sizes
                 Str("#0000FF".to_string()),
                 Str("Large".to_string()),
             ],
-        )),
+        )
     );
 }
 
 #[test]
 fn test_difference() {
-    assert_eq!(
-        eval(
-            parse(
-                r#"
+    run!(
+        r#"
 Left =
   a, b :
   1, 2,
@@ -157,20 +157,12 @@ Right =
   1, 2;
 
 Left - Right
-"#
-            )
-            .unwrap()
-        ),
-        Ok(Table(
-            vec!["a".to_string(), "b".to_string()],
-            vec![Int(3), Int(4)],
-        ))
+"#,
+        Table(vec!["a".to_string(), "b".to_string()], vec![Int(3), Int(4)])
     );
 
-    assert_eq!(
-        eval(
-            parse(
-                r#"
+    run!(
+        r#"
 Left =
   a, b :
   1, 2,
@@ -181,13 +173,10 @@ Right =
   1, 'something else';
 
 Left - Right
-"#
-            )
-            .unwrap()
-        ),
-        Ok(Table(
+"#,
+        Table(
             vec!["a".to_string(), "b".to_string()],
             vec![Int(1), Int(2), Int(3), Int(4)],
-        ))
+        )
     );
 }

@@ -4,6 +4,8 @@ use std::{
     time::Duration,
 };
 
+use crate::{eval::eval, parse::parse, serialise::serialise};
+
 pub fn serve(port: u16, timeout: u64) -> io::Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let listener = TcpListener::bind(addr)?;
@@ -23,10 +25,20 @@ fn handle_connection(mut stream: TcpStream, timeout: u64) {
     let mut buffer = Vec::new();
     match stream.read_to_end(&mut buffer) {
         Ok(_) => {
-            let received = String::from_utf8_lossy(&buffer);
-            println!("Received: {}", received);
+            let text = String::from_utf8_lossy(&buffer);
 
-            let response = format!("Server received: {}", received);
+            let program = match parse(&text) {
+                Ok(program) => program,
+                Err(_) => return,
+            };
+
+            let program = match eval(program) {
+                Ok((program, _)) => program,
+                Err(_) => return,
+            };
+
+            let response = serialise(program);
+
             stream.write_all(response.as_bytes()).unwrap();
         }
         Err(e) => println!("Error reading from connection: {}", e),

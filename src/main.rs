@@ -58,7 +58,7 @@ fn read_eval_print(text: &str) {
     };
 
     let program = match eval(program) {
-        Ok(program) => program,
+        Ok((program, _)) => program,
         Err(e) => {
             eprintln!("Error evaluating program: {}", e);
             return;

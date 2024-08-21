@@ -4,50 +4,49 @@ use crate::exp::{Exp, Exp::*};
 
 type Env = HashMap<String, Exp>;
 
-pub fn eval(exp: Exp) -> Result<Exp, String> {
+pub fn eval(exp: Exp) -> Result<(Exp, Env), String> {
     eval_exp(exp, HashMap::new())
 }
 
-fn eval_exp(exp: Exp, mut env: Env) -> Result<Exp, String> {
+fn eval_exp(exp: Exp, mut env: Env) -> Result<(Exp, Env), String> {
     match exp {
         Let(var, exp, body) => {
-            let exp = eval_exp(*exp, env.clone())?;
+            let (exp, _) = eval_exp(*exp, env.clone())?;
             env.insert(var, exp);
-            let body = eval_exp(*body, env)?;
-            Ok(body)
+            eval_exp(*body, env)
         }
         Select(select_vars, table) => {
-            let Table(table_vars, exps) = eval_exp(*table, env)? else {
+            let (Table(table_vars, exps), _) = eval_exp(*table, env.clone())? else {
                 return Err("expected table".to_string());
             };
             let exps = select(&select_vars, &table_vars, exps);
-            Ok(Table(select_vars, exps))
+            Ok((Table(select_vars, exps), env))
         }
         Where(table, cond) => {
-            let Table(table_vars, exps) = eval_exp(*table, env.clone())? else {
+            let (Table(table_vars, exps), _) = eval_exp(*table, env.clone())? else {
                 return Err("expected table".to_string());
             };
-            let exps = filter(&table_vars, exps, *cond, env)?;
-            Ok(Table(table_vars, exps))
+            let exps = filter(&table_vars, exps, *cond, env.clone())?;
+            Ok((Table(table_vars, exps), env))
         }
         Union(l, r) => {
-            let Table(vars, mut exps) = eval_exp(*l, env.clone())? else {
+            let (Table(vars, mut exps), _) = eval_exp(*l, env.clone())? else {
                 return Err("expected table".to_string());
             };
-            let Table(r_vars, mut r_exps) = eval_exp(*r, env)? else {
+            let (Table(r_vars, mut r_exps), _) = eval_exp(*r, env.clone())? else {
                 return Err("expected table".to_string());
             };
             if vars != r_vars {
                 return Err("expected tables with matching columns in union".to_string());
             }
             exps.append(&mut r_exps);
-            Ok(Table(vars, exps))
+            Ok((Table(vars, exps), env))
         }
         Difference(l, r) => {
-            let Table(l_vars, l_exps) = eval_exp(*l, env.clone())? else {
+            let (Table(l_vars, l_exps), _) = eval_exp(*l, env.clone())? else {
                 return Err("expected table".to_string());
             };
-            let Table(r_vars, r_exps) = eval_exp(*r, env)? else {
+            let (Table(r_vars, r_exps), _) = eval_exp(*r, env.clone())? else {
                 return Err("expected table".to_string());
             };
             if l_vars != r_vars {
@@ -59,13 +58,13 @@ fn eval_exp(exp: Exp, mut env: Env) -> Result<Exp, String> {
                 .filter(|&l_exp| r_exps.chunks(vars.len()).all(|r_exp| l_exp != r_exp))
                 .flat_map(|chunk| chunk.to_vec())
                 .collect();
-            Ok(Table(vars, exps))
+            Ok((Table(vars, exps), env))
         }
         Product(l, r) => {
-            let Table(l_vars, l_exps) = eval_exp(*l, env.clone())? else {
+            let (Table(l_vars, l_exps), _) = eval_exp(*l, env.clone())? else {
                 return Err("expected table".to_string());
             };
-            let Table(r_vars, r_exps) = eval_exp(*r, env)? else {
+            let (Table(r_vars, r_exps), _) = eval_exp(*r, env.clone())? else {
                 return Err("expected table".to_string());
             };
             let exps = l_exps
@@ -77,54 +76,50 @@ fn eval_exp(exp: Exp, mut env: Env) -> Result<Exp, String> {
                 })
                 .collect::<Vec<_>>();
             let vars = [l_vars, r_vars].concat();
-            Ok(Table(vars, exps))
+            Ok((Table(vars, exps), env))
         }
         Table(l, r) => {
             let exps = r
                 .into_iter()
-                .map(|exp| eval_exp(exp, env.clone()))
+                .map(|exp| eval_exp(exp, env.clone()).map(|(exp, _)| exp))
                 .collect::<Result<Vec<Exp>, String>>()?;
-            Ok(Table(l, exps))
+            Ok((Table(l, exps), env))
         }
         Or(l, r) => {
-            let l = eval_exp(*l, env.clone())?;
-            if let Bool(true) = l {
-                return Ok(Bool(true));
+            if let (Bool(true), _) = eval_exp(*l, env.clone())? {
+                return Ok((Bool(true), env));
             }
-            let r = eval_exp(*r, env)?;
-            if let Bool(true) = r {
-                return Ok(Bool(true));
+            if let (Bool(true), _) = eval_exp(*r, env.clone())? {
+                return Ok((Bool(true), env));
             }
-            Ok(Bool(false))
+            Ok((Bool(false), env))
         }
         Equals(l, r) => {
-            let l = eval_exp(*l, env.clone())?;
-            let r = eval_exp(*r, env)?;
-            Ok(Bool(l == r))
+            let (l, _) = eval_exp(*l, env.clone())?;
+            let (r, _) = eval_exp(*r, env.clone())?;
+            Ok((Bool(l == r), env))
         }
         And(l, r) => {
-            let l = eval_exp(*l, env.clone())?;
-            if let Bool(false) = l {
-                return Ok(Bool(false));
+            if let (Bool(false), _) = eval_exp(*l, env.clone())? {
+                return Ok((Bool(false), env));
             }
-            let r = eval_exp(*r, env)?;
-            if let Bool(false) = r {
-                return Ok(Bool(false));
+            if let (Bool(false), _) = eval_exp(*r, env.clone())? {
+                return Ok((Bool(false), env));
             }
-            Ok(Bool(true))
+            Ok((Bool(true), env))
         }
         Not(exp) => {
-            let exp = eval_exp(*exp, env)?;
+            let exp = eval_exp(*exp, env.clone())?;
             match exp {
-                Bool(bool) => Ok(Bool(!bool)),
+                (Bool(bool), _) => Ok((Bool(!bool), env)),
                 _ => Err(format!("Expected boolean, found {:?}", exp)),
             }
         }
         Var(var) => match env.get(&var) {
-            Some(exp) => Ok(exp.clone()),
+            Some(exp) => Ok((exp.clone(), env)),
             None => Err(format!("Variable `{}` not defined", var)),
         },
-        exp => Ok(exp),
+        exp => Ok((exp, env)),
     }
 }
 
@@ -160,7 +155,7 @@ fn filter(
                 env.insert(var.clone(), exp.clone());
             }
 
-            let Bool(keep) = eval_exp(cond.clone(), env)? else {
+            let (Bool(keep), _) = eval_exp(cond.clone(), env)? else {
                 return Err("expected boolean in where clause".to_string());
             };
 
