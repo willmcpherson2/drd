@@ -8,33 +8,35 @@ use drd::{eval::eval, parse::parse, serialise::serialise};
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Input file to process
-    #[arg(conflicts_with = "eval")]
+    #[arg(conflicts_with_all = ["eval", "port"])]
     file: Option<String>,
 
     /// Evaluate a string instead of a file
-    #[arg(short, long, value_name = "STRING")]
+    #[arg(conflicts_with_all = ["file", "port"], short, long, value_name = "STRING")]
     eval: Option<String>,
+
+    /// Start the database on a port
+    #[arg(conflicts_with_all = ["file", "eval"], short, long, value_name = "PORT", default_value = "2345")]
+    port: Option<u16>,
 }
 
 fn main() {
     let cli = Cli::parse();
 
-    let text = if let Some(text) = cli.eval {
-        text
-    } else if let Some(filename) = cli.file {
+    if let Some(filename) = cli.file {
         match fs::read_to_string(filename) {
-            Ok(text) => text,
-            Err(e) => {
-                eprintln!("Error reading file: {}", e);
-                return;
-            }
+            Ok(text) => read_eval_print(&text),
+            Err(e) => eprintln!("Error reading file: {}", e),
         }
-    } else {
-        eprintln!("Either a file or --eval must be provided");
-        return;
-    };
+    } else if let Some(text) = cli.eval {
+        read_eval_print(&text);
+    } else if let Some(port) = cli.port {
+        println!("Starting on port: {port}");
+    }
+}
 
-    let program = match parse(&text) {
+fn read_eval_print(text: &str) {
+    let program = match parse(text) {
         Ok(program) => program,
         Err(e) => {
             eprintln!("Error parsing program: {}", e);
