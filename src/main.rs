@@ -1,7 +1,7 @@
 use clap::Parser;
 use std::{collections::HashMap, fs};
 
-use drd::{eval::eval, parse::parse, serialise::serialise, serve::serve};
+use drd::{read_eval, serialise::serialise, serve::serve};
 
 const EVAL: &[&str] = &["file", "eval"];
 const SERVE: &[&str] = &["directory", "port", "timeout"];
@@ -56,21 +56,8 @@ fn main() {
 }
 
 fn read_eval_print(text: &str) {
-    let program = match parse(text) {
-        Ok(program) => program,
-        Err(e) => {
-            eprintln!("Error parsing program: {}", e);
-            return;
-        }
-    };
-
-    let program = match eval(program, &HashMap::new()) {
-        Ok((program, _)) => program,
-        Err(e) => {
-            eprintln!("Error evaluating program: {}", e);
-            return;
-        }
-    };
-
-    println!("{}", serialise(program));
+    match read_eval(text, &HashMap::new()) {
+        Ok((program, _)) => println!("{}", serialise(program)),
+        Err(e) => eprintln!("Error evaluating program: {}", e),
+    }
 }

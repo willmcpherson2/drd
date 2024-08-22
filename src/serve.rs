@@ -5,11 +5,7 @@ use std::{
     time::Duration,
 };
 
-use crate::{
-    eval::{eval, Env},
-    parse::parse,
-    serialise::serialise,
-};
+use crate::{eval::Env, parse::parse, read_eval, serialise::serialise};
 
 pub fn serve(dir: String, port: u16, timeout: u64) -> io::Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
@@ -36,24 +32,16 @@ fn handle_connection(mut stream: TcpStream, dir: &str, timeout: u64) {
         Ok(_) => {
             let text = String::from_utf8_lossy(&buffer);
 
-            let program = match parse(&text) {
-                Ok(program) => program,
-                Err(_) => return,
-            };
-
             let env = read_env(dir).unwrap();
 
-            let (program, env) = match eval(program, &env) {
-                Ok(result) => result,
-                Err(e) => {
-                    eprintln!("{}", e);
-                    return;
+            let response = match read_eval(&text, &env) {
+                Ok((program, env)) => {
+                    write_env(dir, &env);
+                    serialise(program)
                 }
+                Err(e) => format!("Error evaluating program: {}", e),
             };
 
-            write_env(dir, &env);
-
-            let response = serialise(program);
             stream.write_all(response.as_bytes()).unwrap();
         }
         Err(e) => println!("Error reading from connection: {}", e),
