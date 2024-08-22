@@ -25,9 +25,11 @@ pub fn serve(dir: String, port: u16, timeout: u64) -> io::Result<()> {
 }
 
 fn handle_connection(mut stream: TcpStream, dir: &str, timeout: u64) {
-    stream
-        .set_read_timeout(Some(Duration::from_millis(timeout)))
-        .unwrap();
+    if timeout > 0 {
+        stream
+            .set_read_timeout(Some(Duration::from_millis(timeout)))
+            .unwrap();
+    }
 
     let mut buffer = Vec::new();
     match stream.read_to_end(&mut buffer) {

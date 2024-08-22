@@ -26,7 +26,7 @@ struct Cli {
     #[arg(conflicts_with_all = EVAL, short, long, value_name = "PORT", default_value = "2345")]
     port: u16,
 
-    /// Timeout for connections in milliseconds
+    /// Timeout for connections in milliseconds. 0 for no timeout
     #[arg(conflicts_with_all = EVAL, short, long, value_name = "TIMEOUT", default_value = "5000")]
     timeout: u64,
 }
