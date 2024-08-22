@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 use drd::{eval::eval, exp::Exp::*, parse::parse};
 
 macro_rules! run {
     ($input:expr, $output:expr) => {{
-        let (exp, _) = eval(parse($input).unwrap()).unwrap();
+        let (exp, _) = eval(parse($input).unwrap(), &HashMap::new()).unwrap();
         assert_eq!(exp, $output);
     }};
 }

@@ -1,10 +1,10 @@
 use clap::Parser;
-use std::fs;
+use std::{collections::HashMap, fs};
 
 use drd::{eval::eval, parse::parse, serialise::serialise, serve::serve};
 
 const EVAL: &[&str] = &["file", "eval"];
-const SERVE: &[&str] = &["port", "timeout"];
+const SERVE: &[&str] = &["directory", "port", "timeout"];
 
 /// The Drd programming language
 #[derive(Parser)]
@@ -17,6 +17,10 @@ struct Cli {
     /// Evaluate a string instead of a file
     #[arg(conflicts_with = "file", conflicts_with_all = SERVE, short, long, value_name = "STRING")]
     eval: Option<String>,
+
+    /// The directory to store database files
+    #[arg(conflicts_with_all = EVAL, short, long, value_name = "PATH", default_value = "db")]
+    directory: String,
 
     /// Start the database on a port
     #[arg(conflicts_with_all = EVAL, short, long, value_name = "PORT", default_value = "2345")]
@@ -38,11 +42,14 @@ fn main() {
     } else if let Some(text) = cli.eval {
         read_eval_print(&text);
     } else {
+        let dir = cli.directory;
         let port = cli.port;
         let timeout = cli.timeout;
         println!("Starting server");
+        println!("Directory: {dir}");
+        println!("Timeout: {timeout}");
         println!("http://localhost:{port}");
-        if let Err(e) = serve(port, timeout) {
+        if let Err(e) = serve(dir, port, timeout) {
             eprintln!("Error starting server: {}", e)
         }
     }
@@ -57,7 +64,7 @@ fn read_eval_print(text: &str) {
         }
     };
 
-    let program = match eval(program) {
+    let program = match eval(program, &HashMap::new()) {
         Ok((program, _)) => program,
         Err(e) => {
             eprintln!("Error evaluating program: {}", e);

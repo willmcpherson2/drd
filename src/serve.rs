@@ -1,23 +1,30 @@
 use std::{
+    fs,
     io::{self, Read, Write},
     net::{SocketAddr, TcpListener, TcpStream},
     time::Duration,
 };
 
-use crate::{eval::eval, parse::parse, serialise::serialise};
+use crate::{
+    eval::{eval, Env},
+    parse::parse,
+    serialise::serialise,
+};
 
-pub fn serve(port: u16, timeout: u64) -> io::Result<()> {
+pub fn serve(dir: String, port: u16, timeout: u64) -> io::Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let listener = TcpListener::bind(addr)?;
 
+    fs::create_dir_all(&dir)?;
+
     for stream in listener.incoming().flatten() {
-        handle_connection(stream, timeout);
+        handle_connection(stream, &dir, timeout);
     }
 
     Ok(())
 }
 
-fn handle_connection(mut stream: TcpStream, timeout: u64) {
+fn handle_connection(mut stream: TcpStream, dir: &str, timeout: u64) {
     stream
         .set_read_timeout(Some(Duration::from_millis(timeout)))
         .unwrap();
@@ -32,15 +39,48 @@ fn handle_connection(mut stream: TcpStream, timeout: u64) {
                 Err(_) => return,
             };
 
-            let program = match eval(program) {
-                Ok((program, _)) => program,
-                Err(_) => return,
+            let env = read_env(dir).unwrap();
+
+            let (program, env) = match eval(program, &env) {
+                Ok(result) => result,
+                Err(e) => {
+                    eprintln!("{}", e);
+                    return;
+                }
             };
 
-            let response = serialise(program);
+            write_env(dir, &env);
 
+            let response = serialise(program);
             stream.write_all(response.as_bytes()).unwrap();
         }
         Err(e) => println!("Error reading from connection: {}", e),
+    }
+}
+
+fn read_env(dir: &str) -> io::Result<Env> {
+    let env = fs::read_dir(dir)?
+        .filter_map(Result::ok)
+        .filter_map(|file| {
+            let path = file.path();
+            let mut file = fs::File::open(&path).ok()?;
+            let mut text = String::new();
+            file.read_to_string(&mut text).ok()?;
+            parse(&text).ok().map(|program| {
+                let var = path.file_name().unwrap().to_string_lossy().to_string();
+                (var, program)
+            })
+        })
+        .collect();
+
+    Ok(env)
+}
+
+fn write_env(dir: &str, env: &Env) {
+    for (filename, program) in env {
+        let path = format!("{}/{}", dir, filename);
+        let mut file = fs::File::create(&path).unwrap();
+        let text = serialise(program.clone());
+        file.write_all(text.as_bytes()).unwrap();
     }
 }
