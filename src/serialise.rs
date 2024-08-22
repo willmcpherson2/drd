@@ -1,6 +1,7 @@
 use crate::{
-    exp::Exp::{self, *},
-    parse::{Bexp, Op, Side},
+    Bexp,
+    Exp::{self, *},
+    Op, Side,
 };
 
 pub fn serialise(exp: Exp) -> String {

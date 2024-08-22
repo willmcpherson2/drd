@@ -1,12 +1,15 @@
-use eval::Env;
-use exp::Exp;
+mod eval;
+mod exp;
+mod parse;
+mod serialise;
+mod serve;
 
-pub mod eval;
-pub mod exp;
-pub mod parse;
-pub mod serialise;
-pub mod serve;
+pub use eval::{eval, Env};
+pub use exp::Exp;
+pub use parse::{parse, Bexp, Op, Side};
+pub use serialise::serialise;
+pub use serve::serve;
 
 pub fn read_eval(text: &str, env: &Env) -> Result<(Exp, Env), String> {
-    eval::eval(parse::parse(text)?, env)
+    eval(parse(text)?, env)
 }

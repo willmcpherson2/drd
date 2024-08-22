@@ -1,4 +1,4 @@
-use drd::{parse::parse, serialise::serialise};
+use drd::{parse, serialise};
 
 macro_rules! run {
     ($input:expr, $output:expr) => {{

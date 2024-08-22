@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use drd::{eval, parse, Exp::*};
 
-use drd::{eval::eval, exp::Exp::*, parse::parse};
+use std::collections::HashMap;
 
 macro_rules! run {
     ($input:expr, $output:expr) => {{

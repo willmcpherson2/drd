@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use crate::{Exp, Exp::*};
 
-use crate::exp::{Exp, Exp::*};
+use std::collections::HashMap;
 
 pub type Env = HashMap<String, Exp>;
 

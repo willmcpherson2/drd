@@ -1,4 +1,5 @@
-use crate::exp::{Exp, Exp::*};
+use crate::{Exp, Exp::*};
+
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag, take_until, take_while},

@@ -1,11 +1,11 @@
+use crate::{parse, read_eval, serialise, Env};
+
 use std::{
     fs,
     io::{self, Read, Write},
     net::{SocketAddr, TcpListener, TcpStream},
     time::Duration,
 };
-
-use crate::{eval::Env, parse::parse, read_eval, serialise::serialise};
 
 pub fn serve(dir: String, port: u16, timeout: u64) -> io::Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], port));

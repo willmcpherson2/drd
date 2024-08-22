@@ -1,4 +1,4 @@
-use drd::{exp::Exp::*, parse::parse};
+use drd::{parse, Exp::*};
 
 #[test]
 fn test_bool() {

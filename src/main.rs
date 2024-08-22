@@ -1,7 +1,7 @@
+use drd::{read_eval, serialise, serve};
+
 use clap::Parser;
 use std::{collections::HashMap, fs};
-
-use drd::{read_eval, serialise::serialise, serve::serve};
 
 const EVAL: &[&str] = &["file", "eval"];
 const SERVE: &[&str] = &["directory", "port", "timeout"];
