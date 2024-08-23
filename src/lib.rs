@@ -11,5 +11,5 @@ pub use serialise::serialise;
 pub use serve::serve;
 
 pub fn read_eval(text: &str, env: &Env) -> Result<(Exp, Env), String> {
-    eval(parse(text)?, env)
+    eval(&parse(text)?, env)
 }
