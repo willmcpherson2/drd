@@ -13,41 +13,41 @@ pub fn serve(dir: String, port: u16, timeout: u64) -> io::Result<()> {
 
     fs::create_dir_all(&dir)?;
 
-    for stream in listener.incoming().flatten() {
-        handle_connection(stream, &dir, timeout);
+    for stream in listener.incoming() {
+        match stream {
+            Ok(stream) => match handle_connection(stream, &dir, timeout) {
+                Ok(_) => {}
+                Err(e) => eprintln!("Failed to handle connection: {}", e),
+            },
+            Err(e) => eprintln!("Failed to accept connection: {}", e),
+        }
     }
 
     Ok(())
 }
 
-fn handle_connection(mut stream: TcpStream, dir: &str, timeout: u64) {
+fn handle_connection(mut stream: TcpStream, dir: &str, timeout: u64) -> Result<(), String> {
     if timeout > 0 {
         stream
             .set_read_timeout(Some(Duration::from_millis(timeout)))
-            .unwrap();
+            .map_err(|e| e.to_string())?;
     }
 
     let mut buffer = Vec::new();
-    match stream.read_to_end(&mut buffer) {
-        Ok(_) => {
-            let text = String::from_utf8_lossy(&buffer);
-            match parse(&text) {
-                Ok(parsed) => {
-                    let env = read_env(&parsed, dir).unwrap();
-                    match eval(&parsed, &env) {
-                        Ok((result, env)) => {
-                            write_env(&parsed, dir, &env);
-                            let response = serialise(result);
-                            stream.write_all(response.as_bytes()).unwrap();
-                        }
-                        Err(e) => println!("Error evaluating expression: {}", e),
-                    }
-                }
-                Err(e) => println!("Error parsing expression: {}", e),
-            }
-        }
-        Err(e) => println!("Error reading from connection: {}", e),
-    }
+    stream.read_to_end(&mut buffer).map_err(|e| e.to_string())?;
+    let text = String::from_utf8_lossy(&buffer);
+    let parsed = parse(&text)?;
+
+    let env = read_env(&parsed, dir).map_err(|e| e.to_string())?;
+    let (result, env) = eval(&parsed, &env)?;
+    write_env(&parsed, dir, &env).map_err(|e| e.to_string())?;
+
+    let response = serialise(result);
+    stream
+        .write_all(response.as_bytes())
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 fn read_env(exp: &Exp, dir: &str) -> io::Result<Env> {
@@ -57,7 +57,7 @@ fn read_env(exp: &Exp, dir: &str) -> io::Result<Env> {
         .filter_map(Result::ok)
         .filter_map(|file| {
             let path = file.path();
-            let var = path.file_name().unwrap().to_string_lossy().to_string();
+            let var = path.file_name()?.to_string_lossy().to_string();
             if !reads.contains(&var) {
                 return None;
             }
@@ -72,7 +72,7 @@ fn read_env(exp: &Exp, dir: &str) -> io::Result<Env> {
     Ok(env)
 }
 
-fn write_env(exp: &Exp, dir: &str, env: &Env) {
+fn write_env(exp: &Exp, dir: &str, env: &Env) -> io::Result<()> {
     let writes = analyse_writes(exp);
 
     for (filename, program) in env {
@@ -81,10 +81,12 @@ fn write_env(exp: &Exp, dir: &str, env: &Env) {
         }
 
         let path = format!("{}/{}", dir, filename);
-        let mut file = fs::File::create(&path).unwrap();
+        let mut file = fs::File::create(&path)?;
         let text = serialise(program.clone());
-        file.write_all(text.as_bytes()).unwrap();
+        file.write_all(text.as_bytes())?;
     }
+
+    Ok(())
 }
 
 fn analyse_reads(exp: &Exp, defined: &Vec<String>) -> Vec<String> {
