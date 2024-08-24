@@ -1,7 +1,7 @@
-use drd::{read_eval, serialise, serve, Cli};
+use drd::{read_eval, serialise, serve, Cli, Env};
 
 use clap::Parser;
-use std::{collections::HashMap, fs};
+use std::fs;
 
 fn main() {
     let cli = Cli::parse();
@@ -17,14 +17,12 @@ fn main() {
         println!("Starting server");
         println!("Directory: {}", cli.directory);
         println!("http://localhost:{}", cli.port);
-        if let Err(e) = serve(cli) {
-            eprintln!("Error starting server: {}", e)
-        }
+        serve(cli).unwrap_or_else(|e| eprintln!("Error starting server: {}", e));
     }
 }
 
 fn read_eval_print(text: &str) {
-    match read_eval(text, &HashMap::new()) {
+    match read_eval(text, &Env::new()) {
         Ok((program, _)) => println!("{}", serialise(program)),
         Err(e) => eprintln!("Error evaluating program: {}", e),
     }
