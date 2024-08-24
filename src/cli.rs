@@ -26,4 +26,8 @@ pub struct Cli {
     /// Timeout for connections in milliseconds. 0 for no timeout
     #[arg(conflicts_with_all = EVAL, short, long, value_name = "TIMEOUT", default_value = "5000")]
     pub timeout: u64,
+
+    /// Log connections to stdout
+    #[arg(short, long)]
+    pub verbose: bool,
 }

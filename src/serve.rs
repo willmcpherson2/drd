@@ -47,6 +47,12 @@ fn handle_connection(mut stream: TcpStream, cli: &Cli) -> Result<(), String> {
         .write_all(response.as_bytes())
         .map_err(|e| e.to_string())?;
 
+    if cli.verbose {
+        println!();
+        println!("Input: {}", serialise(parsed));
+        println!("Result: {}", response);
+    }
+
     Ok(())
 }
 
