@@ -35,7 +35,7 @@ Variable    x
 Run this with:
 
 ```
-cargo run -- examples/main.drd
+cargo run -- run examples/main.drd
 ```
 
 ```
