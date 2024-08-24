@@ -34,14 +34,31 @@ fn handle_connection(mut stream: TcpStream, cli: &Cli) -> Result<(), String> {
             .map_err(|e| e.to_string())?;
     }
 
-    let mut buffer = Vec::new();
-    stream.read_to_end(&mut buffer).map_err(|e| e.to_string())?;
-    let text = String::from_utf8_lossy(&buffer);
+    let mut text = String::new();
+    stream
+        .read_to_string(&mut text)
+        .map_err(|e| e.to_string())?;
     let parsed = parse(&text)?;
 
-    let env = read_env(&parsed, &cli.directory).map_err(|e| e.to_string())?;
+    let filenames = filenames(&cli.directory).map_err(|e| e.to_string())?;
+
+    let reads = filenames
+        .intersection(&analyse_reads(&parsed, &empty()))
+        .cloned()
+        .collect();
+    let env = read_env(&cli.directory, &reads)?;
+
     let (result, env) = eval(&parsed, &env)?;
-    write_env(&parsed, &cli.directory, &env).map_err(|e| e.to_string())?;
+
+    let writes = filenames
+        .intersection(&analyse_writes(&parsed))
+        .cloned()
+        .collect::<HashSet<_>>();
+    let env = env
+        .into_iter()
+        .filter(|(k, _)| writes.contains(k))
+        .collect();
+    write_env(&cli.directory, &env).map_err(|e| e.to_string())?;
 
     let response = serialise(result);
     stream
@@ -52,48 +69,47 @@ fn handle_connection(mut stream: TcpStream, cli: &Cli) -> Result<(), String> {
         println!();
         println!("Input: {}", serialise(parsed));
         println!("Result: {}", response);
+        println!(
+            "Reads: {}",
+            reads.into_iter().collect::<Vec<_>>().join(", ")
+        );
+        println!(
+            "Writes: {}",
+            writes.into_iter().collect::<Vec<_>>().join(", ")
+        );
     }
 
     Ok(())
 }
 
-fn read_env(exp: &Exp, dir: &str) -> io::Result<Env> {
-    let reads = analyse_reads(exp, &empty());
-
-    let env = fs::read_dir(dir)?
-        .filter_map(Result::ok)
-        .filter_map(|file| {
-            let path = file.path();
-            let var = path.file_name()?.to_string_lossy().to_string();
-            if !reads.contains(&var) {
-                return None;
-            }
-
-            let mut file = fs::File::open(&path).ok()?;
-            let mut text = String::new();
-            file.read_to_string(&mut text).ok()?;
-            parse(&text).ok().map(|program| (var, program))
+fn read_env(dir: &str, reads: &HashSet<String>) -> Result<Env, String> {
+    let env = reads
+        .iter()
+        .map(|filename| {
+            let path = format!("{}/{}", dir, filename);
+            let text = fs::read_to_string(path).map_err(|e| e.to_string())?;
+            let exp = parse(&text)?;
+            Ok((filename.clone(), exp))
         })
-        .collect();
+        .collect::<Result<Env, String>>()?;
 
     Ok(env)
 }
 
-fn write_env(exp: &Exp, dir: &str, env: &Env) -> io::Result<()> {
-    let writes = analyse_writes(exp);
-
-    for (filename, program) in env {
-        if !writes.contains(filename) {
-            continue;
-        }
-
+fn write_env(dir: &str, env: &Env) -> io::Result<()> {
+    env.iter().try_for_each(|(filename, exp)| {
         let path = format!("{}/{}", dir, filename);
-        let mut file = fs::File::create(&path)?;
-        let text = serialise(program.clone());
-        file.write_all(text.as_bytes())?;
-    }
+        let serialised = serialise(exp.clone());
+        fs::write(path, serialised)
+    })
+}
 
-    Ok(())
+fn filenames(dir: &str) -> io::Result<HashSet<String>> {
+    let files = fs::read_dir(dir)?
+        .filter_map(|file| Some(file.ok()?.path().file_name()?.to_str()?.to_string()))
+        .collect();
+
+    Ok(files)
 }
 
 fn analyse_reads(exp: &Exp, defined: &HashSet<String>) -> HashSet<String> {
@@ -116,14 +132,14 @@ fn analyse_reads(exp: &Exp, defined: &HashSet<String>) -> HashSet<String> {
         Exp::And(l, r) => union(analyse_reads(l, defined), analyse_reads(r, defined)),
         Exp::Not(exp) => analyse_reads(exp, defined),
         Exp::Var(var) if !defined.contains(var) => single(var),
-        _ => HashSet::new(),
+        _ => empty(),
     }
 }
 
 fn analyse_writes(exp: &Exp) -> HashSet<String> {
     match exp {
         Exp::Let(var, _, body) => union(single(var), analyse_writes(body)),
-        _ => HashSet::new(),
+        _ => empty(),
     }
 }
 
