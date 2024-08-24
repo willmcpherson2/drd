@@ -1,6 +1,7 @@
 use crate::{eval, parse, serialise, Cli, Env, Exp};
 
 use std::{
+    collections::HashSet,
     fs,
     io::{self, Read, Write},
     net::{SocketAddr, TcpListener, TcpStream},
@@ -57,7 +58,7 @@ fn handle_connection(mut stream: TcpStream, cli: &Cli) -> Result<(), String> {
 }
 
 fn read_env(exp: &Exp, dir: &str) -> io::Result<Env> {
-    let reads = analyse_reads(exp, &vec![]);
+    let reads = analyse_reads(exp, &empty());
 
     let env = fs::read_dir(dir)?
         .filter_map(Result::ok)
@@ -95,34 +96,45 @@ fn write_env(exp: &Exp, dir: &str, env: &Env) -> io::Result<()> {
     Ok(())
 }
 
-fn analyse_reads(exp: &Exp, defined: &Vec<String>) -> Vec<String> {
+fn analyse_reads(exp: &Exp, defined: &HashSet<String>) -> HashSet<String> {
     match exp {
-        Exp::Let(var, exp, body) => [
+        Exp::Let(var, exp, body) => union(
             analyse_reads(exp, defined),
-            analyse_reads(body, &[&[var.clone()], defined.as_slice()].concat()),
-        ]
-        .concat(),
+            analyse_reads(body, &union(single(var), defined.clone())),
+        ),
         Exp::Select(_, r) => analyse_reads(r, defined),
-        Exp::Where(l, r) => [analyse_reads(l, defined), analyse_reads(r, defined)].concat(),
-        Exp::Union(l, r) => [analyse_reads(l, defined), analyse_reads(r, defined)].concat(),
-        Exp::Difference(l, r) => [analyse_reads(l, defined), analyse_reads(r, defined)].concat(),
-        Exp::Product(l, r) => [analyse_reads(l, defined), analyse_reads(r, defined)].concat(),
+        Exp::Where(l, r) => union(analyse_reads(l, defined), analyse_reads(r, defined)),
+        Exp::Union(l, r) => union(analyse_reads(l, defined), analyse_reads(r, defined)),
+        Exp::Difference(l, r) => union(analyse_reads(l, defined), analyse_reads(r, defined)),
+        Exp::Product(l, r) => union(analyse_reads(l, defined), analyse_reads(r, defined)),
         Exp::Table(_, r) => r
             .iter()
             .flat_map(|exp| analyse_reads(exp, defined))
             .collect(),
-        Exp::Or(l, r) => [analyse_reads(l, defined), analyse_reads(r, defined)].concat(),
-        Exp::Equals(l, r) => [analyse_reads(l, defined), analyse_reads(r, defined)].concat(),
-        Exp::And(l, r) => [analyse_reads(l, defined), analyse_reads(r, defined)].concat(),
+        Exp::Or(l, r) => union(analyse_reads(l, defined), analyse_reads(r, defined)),
+        Exp::Equals(l, r) => union(analyse_reads(l, defined), analyse_reads(r, defined)),
+        Exp::And(l, r) => union(analyse_reads(l, defined), analyse_reads(r, defined)),
         Exp::Not(exp) => analyse_reads(exp, defined),
-        Exp::Var(var) if !defined.contains(var) => vec![var.clone()],
-        _ => vec![],
+        Exp::Var(var) if !defined.contains(var) => single(var),
+        _ => HashSet::new(),
     }
 }
 
-fn analyse_writes(exp: &Exp) -> Vec<String> {
+fn analyse_writes(exp: &Exp) -> HashSet<String> {
     match exp {
-        Exp::Let(var, _, body) => [vec![var.clone()], analyse_writes(body)].concat(),
-        _ => vec![],
+        Exp::Let(var, _, body) => union(single(var), analyse_writes(body)),
+        _ => HashSet::new(),
     }
+}
+
+fn empty() -> HashSet<String> {
+    HashSet::new()
+}
+
+fn single(s: &str) -> HashSet<String> {
+    HashSet::from([s.to_string()])
+}
+
+fn union(a: HashSet<String>, b: HashSet<String>) -> HashSet<String> {
+    a.union(&b).cloned().collect()
 }
