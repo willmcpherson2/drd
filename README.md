@@ -1,8 +1,71 @@
 # The Shadowbox Database
 
-https://en.wikipedia.org/wiki/Relational_algebra#Introduction
+Shadowbox (sdb) is a simple relational database. It implements the [relational algebra](https://en.wikipedia.org/wiki/Relational_algebra#Introduction).
 
-https://cs186berkeley.net/notes/note6/
+sdb has no `CREATE TABLE` or `INSERT` statements. Instead, it has table literals and **variable shadowing**.
+
+```
+Staff =
+  id, name, employed :
+  1, 'Alice', true,
+  2, 'Bob', true;
+Staff = Staff + id, name, employed : 3, 'Charlie', false;
+Staff
+```
+
+In this example, we first define a `Staff` table. Then we re-define it as the union of the old table and a new table. Then we put `Staff` in the body of the let expression to query it.
+
+```
+$ sdb run examples/charlie.sdb
+id, name, employed : 1, 'Alice', true, 2, 'Bob', true, 3, 'Charlie', false
+```
+
+However, this is not persistent.
+
+To persist our staff table, we first need to start the database server:
+
+```
+$ sdb start
+Starting server
+Directory: db
+http://localhost:2345
+```
+
+Now we can set up our staff table:
+
+```
+Staff =
+  id, name, employed :
+  1, 'Alice', true,
+  2, 'Bob', true;
+Staff
+```
+
+```
+$ sdb run -s localhost:2345 examples/staff.sdb
+id, name, employed : 1, 'Alice', true, 2, 'Bob', true
+```
+
+It will persist in human-readable form:
+
+```
+$ cat db/Staff 
+id, name, employed : 1, 'Alice', true, 2, 'Bob', true
+```
+
+Now we can re-define `Staff` persistently:
+
+```
+Staff = Staff + id, name, employed : 3, 'Christian', true;
+Staff
+```
+
+```
+$ sdb run -s localhost:2345 examples/christian.sdb 
+id, name, employed : 1, 'Alice', true, 2, 'Bob', true, 3, 'Christian', true
+```
+
+How did that work? It's equivalent to our first example. When you define a variable, the server writes it to disk. When you reference a variable, the server reads it from disk. This means that variable shadowing works across connections.
 
 ## Syntax
 
@@ -11,13 +74,16 @@ https://cs186berkeley.net/notes/note6/
 ```
 Let         var = exp; exp
 
-Select      var,* <- exp
+Select      var,+ <- exp
+            nil <- exp
 Where       exp ? exp
 Union       exp + exp
 Difference  exp - exp
 Product     exp * exp
 
-Table       var,* : exp,*
+Table       var,+ : exp,+
+            nil : nil
+            nil
 
 Or          exp || exp
 And         exp && exp
@@ -28,138 +94,4 @@ Boolean     true
 Integer     -42
 String      'hi'
 Variable    x
-```
-
-## Example
-
-Run this with:
-
-```
-cargo run -- run examples/main.sdb
-```
-
-```
---------------------------------------------------------------------------------
--- Let
--- Syntax: variable = expression ; body
---------------------------------------------------------------------------------
-
-thing = (x = true; not true); -- false
-
---------------------------------------------------------------------------------
--- Table
--- Syntax: variables : expressions
--- SQL: CREATE TABLE combined with INSERT INTO
---------------------------------------------------------------------------------
-
-Staff =
-  id, name, employed :
-  1, 'Alice', true,
-  2, 'Bob', true,
-  3, 'Charlie', false;
-
--- id, name, employed :
--- 1, 'Alice', true,
--- 2, 'Bob', true,
--- 3, 'Charlie', false;
-
---------------------------------------------------------------------------------
--- Select
--- Syntax: variables <- table
--- SQL: SELECT
--- Relational algebra: Projection (π)
---------------------------------------------------------------------------------
-
-Names = id, name <- Staff;
-
--- id, name :
--- 1, 'Alice',
--- 2, 'Bob',
--- 3, 'Charlie';
-
---------------------------------------------------------------------------------
--- Where
--- Syntax: table ? condition
--- SQL: WHERE
--- Relational algebra: Selection (σ)
---------------------------------------------------------------------------------
-
-Alice = Staff ? employed && name == 'Alice';
-
--- id, name, employed :
--- 1, 'Alice', true,
-
---------------------------------------------------------------------------------
--- Union
--- Syntax: table + table
--- SQL: UNION
--- Relational algebra: Union (∪)
---------------------------------------------------------------------------------
-
-David = id, name, employed : 4, 'David', true;
-Staff = Staff + David;
-
--- id, name, employed :
--- 1, 'Alice', true,
--- 2, 'Bob', true,
--- 3, 'Charlie', false;
--- 4, 'David', true;
-
---------------------------------------------------------------------------------
--- Difference
--- Syntax: table - table
--- SQL: MINUS or EXCEPT
--- Relational algebra: Set difference (-)
---------------------------------------------------------------------------------
-
-Staff = Staff - David;
-
--- id, name, employed :
--- 1, 'Alice', true,
--- 2, 'Bob', true,
--- 3, 'Charlie', false;
-
---------------------------------------------------------------------------------
--- Product
--- Syntax: table * table
--- SQL: CROSS JOIN
--- Relational algebra: Cartesian product (×)
---------------------------------------------------------------------------------
-
-Names = name <- Staff;
-Pairs = Names * Names;
-
--- name, name :
--- 'Alice', 'Alice',
--- 'Alice', 'Bob',
--- 'Alice', 'Charlie',
--- 'Bob', 'Alice',
--- 'Bob', 'Bob',
--- 'Bob', 'Charlie',
--- 'Charlie', 'Alice',
--- 'Charlie', 'Bob',
--- 'Charlie', 'Charlie';
-
---------------------------------------------------------------------------------
--- Booleans
---------------------------------------------------------------------------------
-
-Results =
-  result :
-  true,
-  not false,
-  true || false,
-  true && true,
-  1 == 1;
-
--- result :
--- true
--- true
--- true
--- true
--- true
-
-main = Results;
-
-main -- the body of our big let expression!
 ```

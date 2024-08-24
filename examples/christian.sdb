@@ -1,0 +1,2 @@
+Staff = Staff + id, name, employed : 3, 'Christian', true;
+Staff
