@@ -1,42 +1,37 @@
 use crate::{eval, parse, serialise, Cli, Env, Exp};
 
-use std::{
-    collections::HashSet,
-    fs,
-    io::{self, Read, Write},
-    net::{SocketAddr, TcpListener, TcpStream},
-    time::Duration,
+use std::{collections::HashSet, fs, io, net::SocketAddr, sync::Arc};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::{TcpListener, TcpStream},
 };
 
-pub fn serve(cli: Cli) -> io::Result<()> {
+#[tokio::main]
+pub async fn serve(cli: Cli) -> io::Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], cli.port));
-    let listener = TcpListener::bind(addr)?;
+    let listener = TcpListener::bind(addr).await?;
 
     fs::create_dir_all(&cli.directory)?;
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => match handle_connection(stream, &cli) {
-                Ok(_) => {}
-                Err(e) => eprintln!("Failed to handle connection: {}", e),
-            },
-            Err(e) => eprintln!("Failed to accept connection: {}", e),
-        }
-    }
+    let cli = Arc::new(cli);
 
-    Ok(())
+    loop {
+        let (stream, _) = listener.accept().await?;
+        let cli = Arc::clone(&cli);
+
+        tokio::spawn(async move {
+            handle_connection(stream, cli).await.unwrap_or_else(|e| {
+                eprintln!("Error handling connection: {}", e);
+            });
+        });
+    }
 }
 
-fn handle_connection(mut stream: TcpStream, cli: &Cli) -> Result<(), String> {
-    if cli.timeout > 0 {
-        stream
-            .set_read_timeout(Some(Duration::from_millis(cli.timeout)))
-            .map_err(|e| e.to_string())?;
-    }
-
+async fn handle_connection(mut stream: TcpStream, cli: Arc<Cli>) -> Result<(), String> {
     let mut text = String::new();
     stream
         .read_to_string(&mut text)
+        .await
         .map_err(|e| e.to_string())?;
     let parsed = parse(&text)?;
 
@@ -46,7 +41,7 @@ fn handle_connection(mut stream: TcpStream, cli: &Cli) -> Result<(), String> {
         .intersection(&analyse_reads(&parsed, &empty()))
         .cloned()
         .collect();
-    let env = read_env(&cli.directory, &reads)?;
+    let env = read_env(&cli.directory, &reads).await?;
 
     let (result, env) = eval(&parsed, &env)?;
 
@@ -58,11 +53,14 @@ fn handle_connection(mut stream: TcpStream, cli: &Cli) -> Result<(), String> {
         .into_iter()
         .filter(|(k, _)| writes.contains(k))
         .collect();
-    write_env(&cli.directory, &env).map_err(|e| e.to_string())?;
+    write_env(&cli.directory, &env)
+        .await
+        .map_err(|e| e.to_string())?;
 
     let response = serialise(result);
     stream
         .write_all(response.as_bytes())
+        .await
         .map_err(|e| e.to_string())?;
 
     if cli.verbose {
@@ -82,26 +80,26 @@ fn handle_connection(mut stream: TcpStream, cli: &Cli) -> Result<(), String> {
     Ok(())
 }
 
-fn read_env(dir: &str, reads: &HashSet<String>) -> Result<Env, String> {
-    let env = reads
-        .iter()
-        .map(|filename| {
-            let path = format!("{}/{}", dir, filename);
-            let text = fs::read_to_string(path).map_err(|e| e.to_string())?;
-            let exp = parse(&text)?;
-            Ok((filename.clone(), exp))
-        })
-        .collect::<Result<Env, String>>()?;
-
+async fn read_env(dir: &str, reads: &HashSet<String>) -> Result<Env, String> {
+    let mut env = Env::new();
+    for filename in reads {
+        let path = format!("{}/{}", dir, filename);
+        let text = tokio::fs::read_to_string(&path)
+            .await
+            .map_err(|e| e.to_string())?;
+        let exp = parse(&text)?;
+        env.insert(filename.clone(), exp);
+    }
     Ok(env)
 }
 
-fn write_env(dir: &str, env: &Env) -> io::Result<()> {
-    env.iter().try_for_each(|(filename, exp)| {
+async fn write_env(dir: &str, env: &Env) -> io::Result<()> {
+    for (filename, exp) in env {
         let path = format!("{}/{}", dir, filename);
         let serialised = serialise(exp.clone());
-        fs::write(path, serialised)
-    })
+        tokio::fs::write(path, serialised).await?;
+    }
+    Ok(())
 }
 
 fn filenames(dir: &str) -> io::Result<HashSet<String>> {

@@ -16,7 +16,6 @@ fn main() {
     } else {
         println!("Starting server");
         println!("Directory: {}", cli.directory);
-        println!("Timeout: {}", cli.timeout);
         println!("http://localhost:{}", cli.port);
         if let Err(e) = serve(cli) {
             eprintln!("Error starting server: {}", e)
