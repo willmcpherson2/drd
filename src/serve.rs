@@ -1,4 +1,4 @@
-use crate::{eval, parse, serialise, Env, Exp};
+use crate::{eval, parse, serialise, Cli, Env, Exp};
 
 use std::{
     fs,
@@ -7,15 +7,15 @@ use std::{
     time::Duration,
 };
 
-pub fn serve(dir: String, port: u16, timeout: u64) -> io::Result<()> {
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+pub fn serve(cli: Cli) -> io::Result<()> {
+    let addr = SocketAddr::from(([127, 0, 0, 1], cli.port));
     let listener = TcpListener::bind(addr)?;
 
-    fs::create_dir_all(&dir)?;
+    fs::create_dir_all(&cli.directory)?;
 
     for stream in listener.incoming() {
         match stream {
-            Ok(stream) => match handle_connection(stream, &dir, timeout) {
+            Ok(stream) => match handle_connection(stream, &cli) {
                 Ok(_) => {}
                 Err(e) => eprintln!("Failed to handle connection: {}", e),
             },
@@ -26,10 +26,10 @@ pub fn serve(dir: String, port: u16, timeout: u64) -> io::Result<()> {
     Ok(())
 }
 
-fn handle_connection(mut stream: TcpStream, dir: &str, timeout: u64) -> Result<(), String> {
-    if timeout > 0 {
+fn handle_connection(mut stream: TcpStream, cli: &Cli) -> Result<(), String> {
+    if cli.timeout > 0 {
         stream
-            .set_read_timeout(Some(Duration::from_millis(timeout)))
+            .set_read_timeout(Some(Duration::from_millis(cli.timeout)))
             .map_err(|e| e.to_string())?;
     }
 
@@ -38,9 +38,9 @@ fn handle_connection(mut stream: TcpStream, dir: &str, timeout: u64) -> Result<(
     let text = String::from_utf8_lossy(&buffer);
     let parsed = parse(&text)?;
 
-    let env = read_env(&parsed, dir).map_err(|e| e.to_string())?;
+    let env = read_env(&parsed, &cli.directory).map_err(|e| e.to_string())?;
     let (result, env) = eval(&parsed, &env)?;
-    write_env(&parsed, dir, &env).map_err(|e| e.to_string())?;
+    write_env(&parsed, &cli.directory, &env).map_err(|e| e.to_string())?;
 
     let response = serialise(result);
     stream

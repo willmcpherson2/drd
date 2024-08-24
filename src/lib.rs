@@ -1,9 +1,11 @@
+mod cli;
 mod eval;
 mod exp;
 mod parse;
 mod serialise;
 mod serve;
 
+pub use cli::Cli;
 pub use eval::{eval, Env};
 pub use exp::Exp;
 pub use parse::{parse, Bexp, Op, Side};
