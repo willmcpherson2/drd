@@ -6,7 +6,7 @@ pub enum Cli {
     /// Run an expression
     Run(Client),
     /// Start the database server
-    Start(Config),
+    Start(Server),
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -24,7 +24,7 @@ pub struct Client {
 }
 
 #[derive(Parser, Debug, Clone)]
-pub struct Config {
+pub struct Server {
     /// The directory to store database files
     #[arg(short, long, value_name = "PATH", default_value = "db")]
     pub directory: String,

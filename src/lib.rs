@@ -6,7 +6,7 @@ mod parse;
 mod serialise;
 mod serve;
 
-pub use cli::{Cli, Client, Config};
+pub use cli::{Cli, Client, Server};
 pub use client::client;
 pub use eval::{eval, Env};
 pub use exp::Exp;

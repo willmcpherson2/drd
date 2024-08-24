@@ -1,4 +1,4 @@
-use crate::{eval, parse, serialise, Config, Env, Exp};
+use crate::{eval, parse, serialise, Env, Exp, Server};
 
 use std::{collections::HashSet, fs, io, net::SocketAddr, sync::Arc};
 use tokio::{
@@ -7,7 +7,7 @@ use tokio::{
 };
 
 #[tokio::main]
-pub async fn serve(conf: Config) -> io::Result<()> {
+pub async fn serve(conf: Server) -> io::Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], conf.port));
     let listener = TcpListener::bind(addr).await?;
 
@@ -27,7 +27,7 @@ pub async fn serve(conf: Config) -> io::Result<()> {
     }
 }
 
-async fn handle_connection(mut stream: TcpStream, conf: Arc<Config>) -> Result<(), String> {
+async fn handle_connection(mut stream: TcpStream, conf: Arc<Server>) -> Result<(), String> {
     let mut text = String::new();
     stream
         .read_to_string(&mut text)
