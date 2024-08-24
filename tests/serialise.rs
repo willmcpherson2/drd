@@ -18,19 +18,22 @@ fn test_serialise() {
 
     run!("not true", "not true");
 
-    run!("1 * 2 + 3 * 4", "1*2+3*4");
-    run!("1 * (2 + 3) * 4", "1*(2+3)*4");
+    run!("1 * 2 + 3 * 4", "1 * 2 + 3 * 4");
+    run!("1 * (2 + 3) * 4", "1 * (2 + 3) * 4");
 
-    run!("a, b, c : d, e, f", "a,b,c:d,e,f");
+    run!("a, b, c : d, e, f", "a, b, c : d, e, f");
 
-    run!("a = 1; b = 2; c = 3; a + b - c", "a=1;b=2;c=3;a+b-c");
-    run!("a = (b = c; d); e", "a=(b=c;d);e");
+    run!(
+        "a = 1; b = 2; c = 3; a + b - c",
+        "a = 1; b = 2; c = 3; a + b - c"
+    );
+    run!("a = (b = c; d); e", "a = (b = c; d); e");
 
-    run!("a * b * c", "a*b*c");
-    run!("(a * b) * c", "a*b*c");
-    run!("a * (b * c)", "a*(b*c)");
+    run!("a * b * c", "a * b * c");
+    run!("(a * b) * c", "a * b * c");
+    run!("a * (b * c)", "a * (b * c)");
 
     run!("nil", "nil");
     run!("nil : nil", "nil");
-    run!("nil <- a : 1", "nil<-a:1");
+    run!("nil <- a : 1", "nil <- a : 1");
 }

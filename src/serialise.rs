@@ -137,18 +137,18 @@ fn serialise_bexp(exp: Bexp) -> String {
 
 fn serialise_op(op: Op) -> &'static str {
     match op {
-        Op::In => ";",
-        Op::Let => "=",
-        Op::Select => "<-",
-        Op::Where => "?",
-        Op::Union => "+",
-        Op::Difference => "-",
-        Op::Product => "*",
-        Op::Table => ":",
-        Op::Item => ",",
-        Op::Or => "||",
-        Op::Equals => "==",
-        Op::And => "&&",
+        Op::In => "; ",
+        Op::Let => " = ",
+        Op::Select => " <- ",
+        Op::Where => " ? ",
+        Op::Union => " + ",
+        Op::Difference => " - ",
+        Op::Product => " * ",
+        Op::Table => " : ",
+        Op::Item => ", ",
+        Op::Or => " || ",
+        Op::Equals => " == ",
+        Op::And => " && ",
         Op::App => " ",
     }
 }
