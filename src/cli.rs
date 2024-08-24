@@ -1,5 +1,6 @@
 use clap::Parser;
 
+/// The Shadowbox Database
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub enum Cli {

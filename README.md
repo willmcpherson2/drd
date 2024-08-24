@@ -1,4 +1,4 @@
-# Dumb Relational Database (DRD)
+# The Shadowbox Database
 
 https://en.wikipedia.org/wiki/Relational_algebra#Introduction
 
@@ -35,7 +35,7 @@ Variable    x
 Run this with:
 
 ```
-cargo run -- run examples/main.drd
+cargo run -- run examples/main.sdb
 ```
 
 ```

@@ -1,4 +1,4 @@
-use drd::{client, read_eval, serialise, server, Cli, Env};
+use sdb::{client, read_eval, serialise, server, Cli, Env};
 
 use clap::Parser;
 use std::fs;
