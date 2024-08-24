@@ -35,20 +35,12 @@ async fn handle_connection(mut stream: TcpStream, conf: Arc<Server>) -> Result<(
         .map_err(|e| e.to_string())?;
     let parsed = parse(&text)?;
 
-    let filenames = filenames(&conf.directory).map_err(|e| e.to_string())?;
-
-    let reads = filenames
-        .intersection(&analyse_reads(&parsed, &empty()))
-        .cloned()
-        .collect();
+    let reads = analyse_reads(&parsed, &empty());
     let env = read_env(&conf.directory, &reads).await?;
 
     let (result, env) = eval(&parsed, &env)?;
 
-    let writes = filenames
-        .intersection(&analyse_writes(&parsed))
-        .cloned()
-        .collect::<HashSet<_>>();
+    let writes = analyse_writes(&parsed);
     let env = env
         .into_iter()
         .filter(|(k, _)| writes.contains(k))
@@ -100,14 +92,6 @@ async fn write_env(dir: &str, env: &Env) -> io::Result<()> {
         tokio::fs::write(path, serialised).await?;
     }
     Ok(())
-}
-
-fn filenames(dir: &str) -> io::Result<HashSet<String>> {
-    let files = fs::read_dir(dir)?
-        .filter_map(|file| Some(file.ok()?.path().file_name()?.to_str()?.to_string()))
-        .collect();
-
-    Ok(files)
 }
 
 fn analyse_reads(exp: &Exp, defined: &HashSet<String>) -> HashSet<String> {
