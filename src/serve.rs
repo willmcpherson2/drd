@@ -1,4 +1,4 @@
-use crate::{eval, parse, serialise, Cli, Env, Exp};
+use crate::{eval, parse, serialise, Config, Env, Exp};
 
 use std::{collections::HashSet, fs, io, net::SocketAddr, sync::Arc};
 use tokio::{
@@ -7,27 +7,27 @@ use tokio::{
 };
 
 #[tokio::main]
-pub async fn serve(cli: Cli) -> io::Result<()> {
-    let addr = SocketAddr::from(([127, 0, 0, 1], cli.port));
+pub async fn serve(conf: Config) -> io::Result<()> {
+    let addr = SocketAddr::from(([127, 0, 0, 1], conf.port));
     let listener = TcpListener::bind(addr).await?;
 
-    fs::create_dir_all(&cli.directory)?;
+    fs::create_dir_all(&conf.directory)?;
 
-    let cli = Arc::new(cli);
+    let conf = Arc::new(conf);
 
     loop {
         let (stream, _) = listener.accept().await?;
-        let cli = Arc::clone(&cli);
+        let conf = Arc::clone(&conf);
 
         tokio::spawn(async move {
-            handle_connection(stream, cli).await.unwrap_or_else(|e| {
+            handle_connection(stream, conf).await.unwrap_or_else(|e| {
                 eprintln!("Error handling connection: {}", e);
             });
         });
     }
 }
 
-async fn handle_connection(mut stream: TcpStream, cli: Arc<Cli>) -> Result<(), String> {
+async fn handle_connection(mut stream: TcpStream, conf: Arc<Config>) -> Result<(), String> {
     let mut text = String::new();
     stream
         .read_to_string(&mut text)
@@ -35,13 +35,13 @@ async fn handle_connection(mut stream: TcpStream, cli: Arc<Cli>) -> Result<(), S
         .map_err(|e| e.to_string())?;
     let parsed = parse(&text)?;
 
-    let filenames = filenames(&cli.directory).map_err(|e| e.to_string())?;
+    let filenames = filenames(&conf.directory).map_err(|e| e.to_string())?;
 
     let reads = filenames
         .intersection(&analyse_reads(&parsed, &empty()))
         .cloned()
         .collect();
-    let env = read_env(&cli.directory, &reads).await?;
+    let env = read_env(&conf.directory, &reads).await?;
 
     let (result, env) = eval(&parsed, &env)?;
 
@@ -53,7 +53,7 @@ async fn handle_connection(mut stream: TcpStream, cli: Arc<Cli>) -> Result<(), S
         .into_iter()
         .filter(|(k, _)| writes.contains(k))
         .collect();
-    write_env(&cli.directory, &env)
+    write_env(&conf.directory, &env)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -63,7 +63,7 @@ async fn handle_connection(mut stream: TcpStream, cli: Arc<Cli>) -> Result<(), S
         .await
         .map_err(|e| e.to_string())?;
 
-    if cli.verbose {
+    if conf.verbose {
         println!();
         println!("Input: {}", serialise(parsed));
         println!("Result: {}", response);

@@ -1,29 +1,33 @@
 use clap::Parser;
 
-const EVAL: &[&str] = &["file", "eval"];
-const SERVE: &[&str] = &["directory", "port"];
-
-/// The Drd programming language
-#[derive(Parser, Clone, Debug)]
+#[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
-pub struct Cli {
-    /// Input file to process
-    #[arg(conflicts_with = "eval", conflicts_with_all = SERVE)]
-    pub file: Option<String>,
+pub enum Cli {
+    /// Run a Drd file
+    Run {
+        /// Input file to process
+        file: String,
+    },
+    /// Evaluate a Drd expression
+    Eval {
+        /// String to evaluate
+        text: String,
+    },
+    /// Start the Drd database server
+    Start(Config),
+}
 
-    /// Evaluate a string instead of a file
-    #[arg(conflicts_with = "file", conflicts_with_all = SERVE, short, long, value_name = "STRING")]
-    pub eval: Option<String>,
-
+#[derive(Parser, Debug, Clone)]
+pub struct Config {
     /// The directory to store database files
-    #[arg(conflicts_with_all = EVAL, short, long, value_name = "PATH", default_value = "db")]
+    #[arg(short, long, value_name = "PATH", default_value = "db")]
     pub directory: String,
 
     /// Start the database on a port
-    #[arg(conflicts_with_all = EVAL, short, long, value_name = "PORT", default_value = "2345")]
+    #[arg(short, long, value_name = "PORT", default_value = "2345")]
     pub port: u16,
 
     /// Log connections to stdout
-    #[arg(short, long)]
+    #[arg(short, long, global = true)]
     pub verbose: bool,
 }

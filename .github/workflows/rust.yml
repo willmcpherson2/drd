@@ -26,4 +26,4 @@ jobs:
       run: cargo test
 
     - name: Run example
-      run: cargo run -- examples/main.drd
+      run: cargo run -- run examples/main.drd
