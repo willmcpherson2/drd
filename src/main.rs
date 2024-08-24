@@ -1,4 +1,4 @@
-use drd::{client, read_eval, serialise, serve, Cli, Env};
+use drd::{client, read_eval, serialise, server, Cli, Env};
 
 use clap::Parser;
 use std::fs;
@@ -31,7 +31,7 @@ fn main() {
             println!("Starting server");
             println!("Directory: {}", conf.directory);
             println!("http://localhost:{}", conf.port);
-            serve(conf).unwrap_or_else(|e| eprintln!("Error starting server: {}", e));
+            server(conf).unwrap_or_else(|e| eprintln!("Error starting server: {}", e));
         }
     }
 }

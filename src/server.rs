@@ -7,7 +7,7 @@ use tokio::{
 };
 
 #[tokio::main]
-pub async fn serve(conf: Server) -> io::Result<()> {
+pub async fn server(conf: Server) -> io::Result<()> {
     let addr = SocketAddr::from(([127, 0, 0, 1], conf.port));
     let listener = TcpListener::bind(addr).await?;
 
