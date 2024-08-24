@@ -3,18 +3,24 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub enum Cli {
-    /// Run a Drd file
-    Run {
-        /// Input file to process
-        file: String,
-    },
-    /// Evaluate a Drd expression
-    Eval {
-        /// String to evaluate
-        text: String,
-    },
-    /// Start the Drd database server
+    /// Run an expression
+    Run(Client),
+    /// Start the database server
     Start(Config),
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct Client {
+    /// Expression or file containing expression
+    pub target: String,
+
+    /// Interpret target as expression rather than file
+    #[arg(short, long)]
+    pub expression: bool,
+
+    /// Send expression to a running server
+    #[arg(short, long, value_name = "URL")]
+    pub server: Option<String>,
 }
 
 #[derive(Parser, Debug, Clone)]

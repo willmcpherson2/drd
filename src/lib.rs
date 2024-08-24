@@ -1,11 +1,13 @@
 mod cli;
+mod client;
 mod eval;
 mod exp;
 mod parse;
 mod serialise;
 mod serve;
 
-pub use cli::{Cli, Config};
+pub use cli::{Cli, Client, Config};
+pub use client::client;
 pub use eval::{eval, Env};
 pub use exp::Exp;
 pub use parse::{parse, Bexp, Op, Side};
