@@ -49,13 +49,13 @@ impl Op {
     pub fn assoc(&self) -> Side {
         match *self {
             Op::In => Side::Right,
-            Op::Let => Side::Left,
-            Op::Select => Side::Left,
+            Op::Let => Side::Right,
+            Op::Select => Side::Right,
             Op::Where => Side::Left,
             Op::Union => Side::Left,
             Op::Difference => Side::Left,
             Op::Product => Side::Left,
-            Op::Table => Side::Left,
+            Op::Table => Side::Right,
             Op::Item => Side::Right,
             Op::Or => Side::Left,
             Op::And => Side::Left,

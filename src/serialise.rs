@@ -97,9 +97,13 @@ fn serialise_exp_list(mut exps: Vec<Exp>) -> Bexp {
     if exps.is_empty() {
         Bexp::Nil
     } else {
-        let first = serialise_exp(exps.remove(0));
+        let first = with_parens(exps.remove(0), Op::Item, Side::Left);
         exps.into_iter().fold(first, |acc, exp| {
-            Bexp::Binary(Box::new(acc), Op::Item, Box::new(serialise_exp(exp)))
+            Bexp::Binary(
+                Box::new(acc),
+                Op::Item,
+                Box::new(with_parens(exp, Op::Item, Side::Right)),
+            )
         })
     }
 }

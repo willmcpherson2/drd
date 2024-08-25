@@ -36,4 +36,7 @@ fn test_serialise() {
     run!("nil", "nil");
     run!("nil : nil", "nil");
     run!("nil <- a : 1", "nil <- a : 1");
+
+    run!("a : b || c, d || e", "a : b || c, d || e");
+    run!("a : (b : c), (d : e)", "a : (b : c), (d : e)");
 }
