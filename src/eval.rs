@@ -16,15 +16,45 @@ pub fn eval(exp: &Exp, env: &Env) -> Result<(Exp, Env), String> {
             let (Table(table_vars, exps), _) = eval(table, env)? else {
                 return Err("expected table".to_string());
             };
-            let exps = select(select_vars, &table_vars, exps);
+            let var_indices = table_vars
+                .iter()
+                .enumerate()
+                .map(|(i, s)| (s, i))
+                .collect::<HashMap<_, _>>();
+            let keep_indices = select_vars
+                .iter()
+                .filter_map(|k| var_indices.get(k))
+                .cloned()
+                .collect::<Vec<_>>();
+            let exps = exps
+                .chunks(max(table_vars.len(), 1))
+                .flat_map(|row| keep_indices.iter().filter_map(|&i| row.get(i).cloned()))
+                .collect();
             Ok((Table(select_vars.clone(), exps), env.clone()))
         }
         Where(table, cond) => {
-            let (Table(table_vars, exps), _) = eval(table, env)? else {
+            let (Table(vars, exps), _) = eval(table, env)? else {
                 return Err("expected table".to_string());
             };
-            let exps = filter(&table_vars, exps, cond, env)?;
-            Ok((Table(table_vars, exps), env.clone()))
+            let exps = exps
+                .chunks(max(vars.len(), 1))
+                .try_fold(vec![], |mut acc, exps| {
+                    let env = vars
+                        .iter()
+                        .zip(exps)
+                        .map(|(var, exp)| (var.clone(), exp.clone()))
+                        .collect();
+
+                    match eval(cond, &env)? {
+                        (Bool(true), _) => {
+                            acc.extend_from_slice(exps);
+                            Ok(acc)
+                        }
+                        (Bool(false), _) => Ok(acc),
+                        _ => Err("expected boolean in where clause".to_string()),
+                    }
+                })?;
+            Ok((Table(vars, exps), env.clone()))
         }
         Union(l, r) => {
             let (Table(vars, mut exps), _) = eval(l, env)? else {
@@ -122,45 +152,4 @@ pub fn eval(exp: &Exp, env: &Env) -> Result<(Exp, Env), String> {
         },
         exp => Ok((exp.clone(), env.clone())),
     }
-}
-
-fn select(keep: &[String], target: &[String], items: Vec<Exp>) -> Vec<Exp> {
-    let target_indices = target
-        .iter()
-        .enumerate()
-        .map(|(i, s)| (s, i))
-        .collect::<HashMap<_, _>>();
-
-    let indices_to_keep = keep
-        .iter()
-        .filter_map(|k| target_indices.get(k))
-        .cloned()
-        .collect::<Vec<_>>();
-
-    items
-        .chunks(max(target.len(), 1))
-        .flat_map(|row| indices_to_keep.iter().filter_map(|&i| row.get(i).cloned()))
-        .collect()
-}
-
-fn filter(vars: &[String], exps: Vec<Exp>, cond: &Exp, env: &Env) -> Result<Vec<Exp>, String> {
-    exps.chunks(max(vars.len(), 1))
-        .try_fold(vec![], |mut acc: Vec<Exp>, exps: &[Exp]| {
-            let mut env = env.clone();
-            for (var, exp) in vars.iter().zip(exps) {
-                env.insert(var.clone(), exp.clone());
-            }
-
-            let (Bool(keep), _) = eval(cond, &env)? else {
-                return Err("expected boolean in where clause".to_string());
-            };
-
-            if keep {
-                for exp in exps {
-                    acc.push(exp.clone());
-                }
-            }
-
-            Ok(acc)
-        })
 }
