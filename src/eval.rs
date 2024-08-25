@@ -1,6 +1,6 @@
 use crate::{Exp, Exp::*};
 
-use std::collections::HashMap;
+use std::{cmp::max, collections::HashMap};
 
 pub type Env = HashMap<String, Exp>;
 
@@ -51,8 +51,12 @@ pub fn eval(exp: &Exp, env: &Env) -> Result<(Exp, Env), String> {
             }
             let vars = l_vars;
             let exps = l_exps
-                .chunks(vars.len())
-                .filter(|&l_exp| r_exps.chunks(vars.len()).all(|r_exp| l_exp != r_exp))
+                .chunks(max(vars.len(), 1))
+                .filter(|&l_exp| {
+                    r_exps
+                        .chunks(max(vars.len(), 1))
+                        .all(|r_exp| l_exp != r_exp)
+                })
                 .flat_map(|chunk| chunk.to_vec())
                 .collect();
             Ok((Table(vars, exps), env.clone()))
@@ -65,10 +69,10 @@ pub fn eval(exp: &Exp, env: &Env) -> Result<(Exp, Env), String> {
                 return Err("expected table".to_string());
             };
             let exps = l_exps
-                .chunks(l_vars.len())
+                .chunks(max(l_vars.len(), 1))
                 .flat_map(|l_row| {
                     r_exps
-                        .chunks(r_vars.len())
+                        .chunks(max(r_vars.len(), 1))
                         .flat_map(move |r_row| [l_row, r_row].concat())
                 })
                 .collect::<Vec<_>>();
@@ -134,13 +138,13 @@ fn select(keep: &[String], target: &[String], items: Vec<Exp>) -> Vec<Exp> {
         .collect::<Vec<_>>();
 
     items
-        .chunks(target.len())
+        .chunks(max(target.len(), 1))
         .flat_map(|row| indices_to_keep.iter().filter_map(|&i| row.get(i).cloned()))
         .collect()
 }
 
 fn filter(vars: &[String], exps: Vec<Exp>, cond: &Exp, env: &Env) -> Result<Vec<Exp>, String> {
-    exps.chunks(vars.len())
+    exps.chunks(max(vars.len(), 1))
         .try_fold(vec![], |mut acc: Vec<Exp>, exps: &[Exp]| {
             let mut env = env.clone();
             for (var, exp) in vars.iter().zip(exps) {
