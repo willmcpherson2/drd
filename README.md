@@ -69,29 +69,31 @@ How did that work? It's equivalent to our first example. When you define a varia
 
 ## Syntax
 
-(Lowest to highest precedence)
-
 ```
-Let         var = exp; exp
+exp
+  var = exp; exp
+  vars <- exp
+  exp ? exp
+  exp + exp
+  exp - exp
+  exp * exp
+  vars : exps
+  exp || exp
+  exp && exp
+  exp == exp
+  not exp
+  bool
+  int
+  str
+  var
 
-Select      var,+ <- exp
-            nil <- exp
-Where       exp ? exp
-Union       exp + exp
-Difference  exp - exp
-Product     exp * exp
+vars
+  var, vars
+  var
+  nil
 
-Table       var,+ : exp,+
-            nil : nil
-            nil
-
-Or          exp || exp
-And         exp && exp
-Equals      exp == exp
-Not         not exp
-
-Boolean     true
-Integer     -42
-String      'hi'
-Variable    x
+exps
+  exp, exps
+  exp
+  nil
 ```
