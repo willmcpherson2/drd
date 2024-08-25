@@ -4,7 +4,7 @@ use tokio::{
 };
 
 #[tokio::main]
-pub async fn client(text: &str, url: &str) -> io::Result<()> {
+pub async fn client(text: &str, url: &str) -> io::Result<String> {
     let mut stream = TcpStream::connect(url).await?;
 
     stream.write_all(text.as_bytes()).await?;
@@ -12,7 +12,6 @@ pub async fn client(text: &str, url: &str) -> io::Result<()> {
 
     let mut response = String::new();
     stream.read_to_string(&mut response).await?;
-    println!("{}", response);
 
-    Ok(())
+    Ok(response)
 }

@@ -18,11 +18,12 @@ fn main() {
             };
 
             match conf.server {
-                Some(url) => {
-                    client(&text, &url).unwrap_or_else(|e| eprintln!("Error running client: {}", e))
-                }
+                Some(url) => match client(&text, &url) {
+                    Ok(result) => println!("{}", result),
+                    Err(e) => eprintln!("Error running client: {}", e),
+                },
                 None => match read_eval(&text, &Env::new()) {
-                    Ok((program, _)) => println!("{}", serialise(program)),
+                    Ok((result, _)) => println!("{}", serialise(result)),
                     Err(e) => eprintln!("Error evaluating program: {}", e),
                 },
             }
