@@ -112,7 +112,7 @@ fn with_parens(exp: Exp, parent: Op, side: Side) -> Bexp {
     let bexp = serialise_exp(exp);
     match bexp {
         Bexp::Binary(_, op, _) => {
-            if op.prec() < parent.prec() || op.prec() == parent.prec() && op.assoc() != side {
+            if op < parent || op == parent && op.assoc() != side {
                 Bexp::Parens(Box::new(bexp))
             } else {
                 bexp

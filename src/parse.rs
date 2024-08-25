@@ -22,7 +22,7 @@ pub enum Bexp {
     Var(String),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd)]
 pub enum Op {
     In,
     Let,
@@ -61,24 +61,6 @@ impl Op {
             Op::And => Side::Left,
             Op::Equals => Side::Left,
             Op::App => Side::Left,
-        }
-    }
-
-    pub fn prec(&self) -> u32 {
-        match *self {
-            Op::In => 1,
-            Op::Let => 2,
-            Op::Select => 3,
-            Op::Where => 4,
-            Op::Union => 5,
-            Op::Difference => 6,
-            Op::Product => 7,
-            Op::Table => 8,
-            Op::Item => 9,
-            Op::Or => 10,
-            Op::And => 11,
-            Op::Equals => 12,
-            Op::App => 13,
         }
     }
 }
@@ -261,7 +243,7 @@ fn re_associate(exp: Bexp) -> Bexp {
         return Bexp::Binary(Box::new(left), r, Box::new(c));
     };
 
-    if r.prec() > l.prec() || r.prec() == l.prec() && r.assoc() == Side::Right {
+    if r > l || r == l && r.assoc() == Side::Right {
         // a l (b r c)
         let left = a;
         let right = Bexp::Binary(b, r, Box::new(c));
